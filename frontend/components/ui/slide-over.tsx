@@ -1,22 +1,27 @@
 'use client';
 
+import clsx from 'clsx';
 import { type ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 type SlideOverProps = {
+  children: ReactNode;
+  ariaLabel: string;
+  titleText?: string;
+  eyebrowText?: string;
+  panelClassName?: string;
   isOpen: boolean;
   onClose?: () => void;
-  ariaLabel: string;
-  children: ReactNode;
-  panelClassName?: string;
 };
 
 export function SlideOver({
+  children,
+  ariaLabel,
+  titleText,
+  eyebrowText,
+  panelClassName = '',
   isOpen,
   onClose,
-  ariaLabel,
-  children,
-  panelClassName = '',
 }: SlideOverProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -55,18 +60,20 @@ export function SlideOver({
     return null;
   }
 
-  const overlayClasses = [
+  const overlayClasses = clsx([
     'fixed inset-0 z-40 h-full w-full bg-slate-900/20 backdrop-blur transition-opacity duration-200',
     isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
-  ].join(' ');
+  ]);
 
-  const panelClasses = [
-    'fixed right-0 top-0 z-50 h-full w-full max-w-md bg-white/90 p-6 shadow-[0_35px_100px_rgba(15,23,42,0.2)] backdrop-blur-lg transition-transform duration-200 ease-out sm:p-8',
-    isOpen ? 'translate-x-0' : 'translate-x-full',
+  const panelClasses = clsx([
+    'fixed right-0 top-0 z-50 h-full w-full max-w-md bg-white/90 p-6 backdrop-blur-lg transition-transform duration-200 ease-out',
+    isOpen
+      ? 'translate-x-0 shadow-[0_35px_100px_rgba(15,23,42,0.2)]'
+      : 'translate-x-full',
     panelClassName,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  ]);
+
+  const headerHasContent = Boolean(eyebrowText || titleText);
 
   return createPortal(
     <>
@@ -80,7 +87,37 @@ export function SlideOver({
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
-        className={panelClasses}>
+        className={panelClasses}
+      >
+        <div
+          className={clsx(
+            'mb-4 flex items-start',
+            headerHasContent ? 'justify-between' : 'justify-end'
+          )}
+        >
+          {headerHasContent && (
+            <div>
+              {eyebrowText && (
+                <p className="text-xs font-semibold uppercase tracking-[0.5em] text-slate-500">
+                  {eyebrowText}
+                </p>
+              )}
+              {titleText && (
+                <h3 className="text-2xl font-semibold text-slate-900">
+                  {titleText}
+                </h3>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200/80 px-3 py-1 text-xs font-semibold text-slate-500"
+          >
+            Close
+          </button>
+        </div>
+
         {children}
       </aside>
     </>,
