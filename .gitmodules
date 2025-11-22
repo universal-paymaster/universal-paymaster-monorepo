@@ -1,0 +1,3 @@
+[submodule "contracts-foundry/lib/account-abstraction"]
+	path = contracts-foundry/lib/account-abstraction
+	url = https://github.com/eth-infinitism/account-abstraction
