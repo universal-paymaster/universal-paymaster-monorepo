@@ -25,8 +25,8 @@ importers:
         specifier: ^22.19.1
         version: 22.19.1
       forge-std:
-        specifier: github:foundry-rs/forge-std#v1.9.4
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1eea5bae12ae557d589f9f0f0edae2faa47cb262
+        specifier: https://github.com/foundry-rs/forge-std
+        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae
       hardhat:
         specifier: ^3.0.15
         version: 3.0.15
@@ -769,9 +769,9 @@ packages:
   fast-uri@3.1.0:
     resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/1eea5bae12ae557d589f9f0f0edae2faa47cb262:
-    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1eea5bae12ae557d589f9f0f0edae2faa47cb262}
-    version: 1.9.4
+  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae:
+    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae}
+    version: 1.11.0
 
   form-data-encoder@2.1.4:
     resolution: {integrity: sha512-yDYSgNMraqvnxiEXO4hi88+YZxaHC6QKzb5N84iRCTDeRO7ZALpir/lVmf/uXUhnwUr2O4HU8s/n6x+yNjQkHw==}
@@ -2009,7 +2009,7 @@ snapshots:
 
   fast-uri@3.1.0: {}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/1eea5bae12ae557d589f9f0f0edae2faa47cb262: {}
+  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae: {}
 
   form-data-encoder@2.1.4: {}
 
