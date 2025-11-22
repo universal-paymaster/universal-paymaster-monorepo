@@ -1,6 +1,6 @@
 ## Hackathon Timeline (Sat Nov 22)
 
-**11:00-11:30** 🟢 Standup 
+**12:05-12:30** 🟢 Standup 
 - [ ] Team standup
 
 **11:30-14:00** 

@@ -1,264 +1,246 @@
 # Universal Paymaster Smart Contracts
 
-This directory contains the smart contracts for the Universal Paymaster protocol - a liquidity pool system that sponsors blockchain transactions by maintaining pools of ETH and ERC-20 tokens.
+This directory contains the smart contracts for the Universal Paymaster protocol - an ERC-4337 account abstraction paymaster system that sponsors blockchain transactions.
 
 ## Overview
 
-The Universal Paymaster allows liquidity providers (LPs) to deposit assets into pools and earn fees from transaction sponsorship and rebalancing operations. The system implements ERC-6909 multi-token vault functionality, enabling efficient management of multiple token pools within a single contract.
+The Universal Paymaster implements the ERC-4337 standard to enable gasless transactions by sponsoring user operations. The system validates and pays for transactions on behalf of users, with extensible logic for determining which operations to sponsor.
+
+## Implemented Contracts
+
+### BasePaymaster
+
+**Location:** [`contracts/core/BasePaymaster.sol`](contracts/core/BasePaymaster.sol)
+
+An abstract base contract implementing the ERC-4337 `IPaymaster` interface. Provides core validation and post-operation logic that must be extended by concrete paymaster implementations.
+
+**Key Features:**
+- ERC-4337 compliant paymaster implementation
+- Integration with canonical EntryPoint v0.8
+- Entry point access control via `onlyEntryPoint` modifier
+- Extensible validation and post-op hooks
+- OpenZeppelin ERC-4337 utilities integration
 
 ## Architecture
 
-### Contract Components
-
-The Universal Paymaster contract combines two main components:
-
-1. **UniversalPaymaster** - Core paymaster logic for pool management and rebalancing
-2. **ERC6909NativeEntryPointVault** - Multi-token vault implementing ERC-6909 standard
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   UniversalPaymaster                        │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │           Pool Management                            │  │
-│  │  • initializePool()                                  │  │
-│  │  • rebalance()                                       │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                           │                                 │
-│                           │                                 │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │      ERC6909NativeEntryPointVault                    │  │
-│  │  • deposit()                                         │  │
-│  │  • withdraw()                                        │  │
-│  │  • totalAssets()                                     │  │
-│  │  • previewDeposit()                                  │  │
-│  │  • previewWithdraw()                                 │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Core Functions
-
-### Pool Management
-
-#### `initializePool(address token, uint24 lpFeeBps, uint24 rebalancingFeeBps, address oracle)`
-
-Initializes a new liquidity pool for a specific token.
-
-**Parameters:**
-- `token` - The ERC-20 token address for this pool
-- `lpFeeBps` - Liquidity provider fee in basis points (1 bps = 0.01%)
-- `rebalancingFeeBps` - Rebalancing fee in basis points
-- `oracle` - Price oracle address for the token
-
-**Access:** Public
-**State:** Non-payable
-
-```
-   Caller                 UniversalPaymaster
-     │                            │
-     │  initializePool()          │
-     ├──────────────────────────► │
-     │                            │
-     │  ✓ Pool Created            │
-     │  ✓ Fees Configured         │
-     │  ✓ Oracle Set              │
-     │                            │
-```
-
-#### `rebalance(address token, uint256 tokenAmount, address receiver)`
-
-Rebalances a pool by exchanging ETH for tokens at a discounted rate.
-
-**Parameters:**
-- `token` - The token to receive
-- `tokenAmount` - Amount of tokens to receive
-- `receiver` - Address to receive the tokens
-
-**Returns:** `ethAmountAfterDiscount` - Amount of ETH required (after discount)
-
-**Access:** Public
-**State:** Payable (msg.value must be >= ethAmountAfterDiscount)
-
-```
-   Caller                 UniversalPaymaster              Pool
-     │                            │                        │
-     │  rebalance()               │                        │
-     │  + ETH payment             │                        │
-     ├──────────────────────────► │                        │
-     │                            │  Calculate discount    │
-     │                            │  based on oracle       │
-     │                            ├──────────────────────► │
-     │                            │  Transfer tokens       │
-     │                            │◄────────────────────── │
-     │  ✓ Tokens received         │                        │
-     │  ✓ Pool rebalanced         │                        │
-     │◄────────────────────────── │                        │
-```
-
-### Vault Operations (ERC-6909)
-
-Pool IDs are derived from token addresses: `poolId = uint256(token)`
-
-#### `deposit(uint256 assets, address receiver, uint256 id)`
-
-Deposits ETH into a specific pool and mints shares to the receiver.
-
-**Parameters:**
-- `assets` - Amount of ETH to deposit (in wei)
-- `receiver` - Address to receive the LP shares
-- `id` - Pool ID (derived from token address)
-
-**Returns:** `shares` - Amount of LP shares minted
-
-**Access:** Public
-**State:** Payable (msg.value must equal `assets`)
-
-**Important:** The `msg.value` must exactly match the `assets` parameter or the transaction will revert.
-
-```
-    LP                    Vault                    Pool
-     │                      │                        │
-     │  deposit()           │                        │
-     │  + ETH (assets)      │                        │
-     ├────────────────────► │                        │
-     │                      │  Calculate shares      │
-     │                      ├──────────────────────► │
-     │                      │  Mint LP tokens        │
-     │                      │◄────────────────────── │
-     │  ✓ LP shares         │                        │
-     │◄──────────────────── │                        │
-```
-
-#### `withdraw(uint256 assets, address receiver, address owner, uint256 id)`
-
-Withdraws ETH from a pool by burning LP shares.
-
-**Parameters:**
-- `assets` - Amount of ETH to withdraw (in wei)
-- `receiver` - Address to receive the ETH
-- `owner` - Address that owns the LP shares
-- `id` - Pool ID
-
-**Returns:** `shares` - Amount of LP shares burned
-
-**Access:** Public
-**State:** Non-payable
-
-```
-    LP                    Vault                    Pool
-     │                      │                        │
-     │  withdraw()          │                        │
-     ├────────────────────► │                        │
-     │                      │  Calculate shares      │
-     │                      ├──────────────────────► │
-     │                      │  Burn LP tokens        │
-     │                      │  Transfer ETH          │
-     │                      │◄────────────────────── │
-     │  ✓ ETH received      │                        │
-     │◄──────────────────── │                        │
-```
-
-### View Functions
-
-#### `totalAssets(uint256 id)`
-
-Returns the total ETH assets in a specific pool.
-
-#### `previewDeposit(uint256 assets, uint256 id)`
-
-Previews the amount of shares that would be minted for a given deposit amount.
-
-#### `previewWithdraw(uint256 assets, uint256 id)`
-
-Previews the amount of shares required to withdraw a given amount of assets.
-
-## Pool Lifecycle
+### ERC-4337 Flow
 
 ```
 ┌──────────────┐
-│   Creator    │
+│     User     │
 └──────┬───────┘
        │
-       │ 1. initializePool(token, lpFee, rebalancingFee, oracle)
+       │ 1. Create UserOperation
        ▼
 ┌──────────────────────┐
-│   Pool Initialized   │
-│   • Token set        │
-│   • Fees configured  │
-│   • Oracle connected │
+│    Entry Point       │
+│   (ERC4337Utils)     │
 └──────┬───────────────┘
        │
-       │ 2. LPs deposit ETH
-       │    deposit(assets, receiver, poolId)
+       │ 2. validatePaymasterUserOp()
        ▼
-┌──────────────────────┐
-│   Pool has Liquidity │
-│   • ETH available    │
-│   • LP shares minted │
-└──────┬───────────────┘
+┌──────────────────────┐      ┌────────────────────────┐
+│   BasePaymaster      │◄─────│  Concrete Paymaster    │
+│                      │      │  Implementation        │
+│ • Entry point check  │      │ • Custom validation    │
+│ • Validation hook    │      │ • Sponsorship logic    │
+│ • Post-op hook       │      │ • Fee handling         │
+└──────┬───────────────┘      └────────────────────────┘
        │
-       │ 3. Users rebalance
-       │    rebalance(token, amount, receiver)
+       │ 3. Execute transaction
        ▼
 ┌──────────────────────┐
-│   Pool Generates     │
-│   Fees               │
-│   • LP fees          │
-│   • Rebalancing fees │
-└──────┬───────────────┘
+│   Smart Wallet       │
+│   (User Account)     │
+└──────────────────────┘
        │
-       │ 4. LPs withdraw
-       │    withdraw(assets, receiver, owner, poolId)
+       │ 4. postOp() [if needed]
        ▼
 ┌──────────────────────┐
-│   LP Exit            │
-│   • Shares burned    │
-│   • ETH + fees paid  │
+│   BasePaymaster      │
+│   • Refund logic     │
+│   • State updates    │
 └──────────────────────┘
 ```
 
-## Fee Structure
+## BasePaymaster Contract
 
-The protocol implements a two-tier fee system:
+### Public Functions
 
-1. **LP Fee (`lpFeeBps`)**: Charged on deposits/withdrawals, accrues to liquidity providers
-2. **Rebalancing Fee (`rebalancingFeeBps`)**: Charged on rebalancing operations, incentivizes pool balance
+#### `entryPoint() → IEntryPoint`
 
-Fees are specified in basis points (bps), where 100 bps = 1%.
+Returns the canonical ERC-4337 entry point contract (v0.8) that validates user operations.
 
-## Integration Example
+**Returns:** The entry point contract instance
 
-See the frontend integration in [`frontend/lib/sc-actions.ts`](../frontend/lib/sc-actions.ts) for TypeScript/Viem examples:
+**Access:** Public view
 
-```typescript
-// Create a new pool
-await createPool({
-  token: '0x...',
-  oracle: '0x...',
-  lpFeeBps: 30,        // 0.3% LP fee
-  rebalancingFeeBps: 10 // 0.1% rebalancing fee
-});
-
-// Supply liquidity
-await supplyToPool({
-  token: '0x...',
-  assetsWei: parseEther('1.0'),
-  receiver: '0x...'
-});
-
-// Rebalance pool
-await rebalancePool({
-  token: '0x...',
-  tokenAmount: parseUnits('1000', 6), // 1000 USDC
-  maxEthToSend: parseEther('0.5'),
-  receiver: '0x...'
-});
+```solidity
+function entryPoint() public view virtual returns (IEntryPoint) {
+    return ERC4337Utils.ENTRYPOINT_V08;
+}
 ```
 
-## Development Setup
+#### `validatePaymasterUserOp(userOp, userOpHash, maxCost) → (context, validationData)`
 
-This project uses Hardhat 3 Beta with TypeScript and Viem.
+Called by the entry point to validate whether the paymaster will sponsor a user operation.
+
+**Parameters:**
+- `userOp` (`PackedUserOperation`) - The user operation to validate
+- `userOpHash` (`bytes32`) - Hash of the user operation
+- `maxCost` (`uint256`) - Maximum cost in native tokens that may be charged
+
+**Returns:**
+- `context` (`bytes`) - Data passed to `postOp` for post-execution logic
+- `validationData` (`uint256`) - Encoded validation result (0 = success, 1 = failure)
+
+**Access:** Public (entry point only)
+
+**Flow:**
+```
+   EntryPoint              BasePaymaster           Concrete Implementation
+       │                         │                           │
+       │  validatePaymaster...() │                           │
+       ├────────────────────────►│                           │
+       │                         │  onlyEntryPoint check     │
+       │                         │                           │
+       │                         │  _validatePaymaster...()  │
+       │                         ├──────────────────────────►│
+       │                         │                           │
+       │                         │  ✓ Custom validation      │
+       │                         │  ✓ Sponsorship decision   │
+       │                         │◄──────────────────────────│
+       │  (context, validation)  │                           │
+       │◄────────────────────────│                           │
+```
+
+#### `postOp(mode, context, actualGasCost, actualUserOpFeePerGas)`
+
+Post-operation hook called by the entry point after the user operation executes.
+
+**Parameters:**
+- `mode` (`PostOpMode`) - Indicates if the operation succeeded, reverted, or was prefund-only
+- `context` (`bytes`) - Context data from `validatePaymasterUserOp`
+- `actualGasCost` (`uint256`) - Actual gas cost paid in native tokens
+- `actualUserOpFeePerGas` (`uint256`) - Effective gas price for this user operation
+
+**Access:** Public (entry point only)
+
+**Note:** Only called if validation returned non-empty context.
+
+```
+   EntryPoint              BasePaymaster           Concrete Implementation
+       │                         │                           │
+       │  After UserOp executed  │                           │
+       │                         │                           │
+       │  postOp()               │                           │
+       ├────────────────────────►│                           │
+       │                         │  onlyEntryPoint check     │
+       │                         │                           │
+       │                         │  _postOp()                │
+       │                         ├──────────────────────────►│
+       │                         │                           │
+       │                         │  ✓ Refund logic           │
+       │                         │  ✓ State updates          │
+       │                         │◄──────────────────────────│
+       │  ✓ Complete             │                           │
+       │◄────────────────────────│                           │
+```
+
+### Internal/Abstract Functions
+
+#### `_validatePaymasterUserOp(userOp, userOpHash, requiredPreFund) → (context, validationData)`
+
+**Abstract function** that must be implemented by concrete paymaster contracts.
+
+**Purpose:** Determine if the paymaster will sponsor the user operation and return context for post-op logic.
+
+**Parameters:**
+- `userOp` - The user operation being validated
+- `userOpHash` - Hash of the user operation
+- `requiredPreFund` - Amount of native tokens required to be prefunded
+
+**Important Notes:**
+- `requiredPreFund` = `requiredGas × userOp.maxFeePerGas`
+- `requiredGas` includes: `verificationGasLimit + callGasLimit + paymasterVerificationGasLimit + paymasterPostOpGasLimit + preVerificationGas`
+
+**Returns:**
+- `context` - Data to pass to `_postOp`
+- `validationData` - 0 for success, 1 for failure, or time range encoding
+
+#### `_postOp(mode, context, actualGasCost, actualUserOpFeePerGas)`
+
+**Virtual function** that can be overridden to implement post-operation logic.
+
+**Purpose:** Handle refunds, state updates, or accounting after user operation execution.
+
+**Important Notes:**
+- `actualUserOpFeePerGas` ≠ `tx.gasprice` (user ops can be bundled)
+- Only called if validation returned non-empty context
+- Default implementation is a no-op
+
+### Access Control
+
+#### `onlyEntryPoint` Modifier
+
+Restricts function access to the canonical entry point contract only.
+
+**Usage:**
+```solidity
+function validatePaymasterUserOp(...) public onlyEntryPoint returns (...) {
+    // Only EntryPoint can call this
+}
+```
+
+**Error:** `PaymasterUnauthorized(address sender)` - Thrown when caller is not the entry point
+
+## Extending BasePaymaster
+
+To create a concrete paymaster implementation:
+
+1. **Inherit from BasePaymaster**
+   ```solidity
+   contract MyPaymaster is BasePaymaster {
+       // Implementation
+   }
+   ```
+
+2. **Implement `_validatePaymasterUserOp`**
+   ```solidity
+   function _validatePaymasterUserOp(
+       PackedUserOperation calldata userOp,
+       bytes32 userOpHash,
+       uint256 requiredPreFund
+   ) internal override returns (bytes memory context, uint256 validationData) {
+       // Custom validation logic
+       // Check if operation should be sponsored
+       // Return context and validation result
+   }
+   ```
+
+3. **Optionally override `_postOp`**
+   ```solidity
+   function _postOp(
+       PostOpMode mode,
+       bytes calldata context,
+       uint256 actualGasCost,
+       uint256 actualUserOpFeePerGas
+   ) internal override {
+       // Custom post-op logic
+       // Handle refunds, update state, etc.
+   }
+   ```
+
+## Dependencies
+
+- **OpenZeppelin Contracts v5.4.0**
+  - `@openzeppelin/contracts/account/utils/draft-ERC4337Utils.sol` - Entry point utilities
+  - `@openzeppelin/contracts/interfaces/draft-IERC4337.sol` - ERC-4337 interfaces
+
+- **Account Abstraction**
+  - `@eth-infinitism/account-abstraction` - Canonical ERC-4337 implementation
+
+## Development Setup
 
 ### Prerequisites
 
@@ -272,11 +254,19 @@ cd contracts
 pnpm install
 ```
 
-### Running Tests
+### Build
+
+```bash
+pnpm build
+```
+
+This compiles all Solidity contracts using Hardhat.
+
+### Testing
 
 ```bash
 # Run all tests
-npx hardhat test
+pnpm test
 
 # Run Solidity tests only
 npx hardhat test solidity
@@ -284,6 +274,17 @@ npx hardhat test solidity
 # Run Node.js integration tests
 npx hardhat test nodejs
 ```
+
+### Linting
+
+```bash
+pnpm lint
+```
+
+This runs:
+- Prettier on TypeScript, JavaScript, JSON, and Markdown files
+- Prettier on Solidity files with `prettier-plugin-solidity`
+- Solhint on Solidity files for style and security checks
 
 ### Deployment
 
@@ -308,23 +309,52 @@ npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
 
 See [`hardhat.config.ts`](./hardhat.config.ts) for network configurations:
 
-- **hardhatMainnet**: Simulated L1 chain
-- **hardhatOp**: Simulated Optimism L2 chain
+- **hardhatMainnet**: Simulated L1 chain for testing
+- **hardhatOp**: Simulated Optimism L2 chain (supports OP-specific features like L1 gas estimation)
 - **sepolia**: Ethereum Sepolia testnet
+
+## Project Structure
+
+```
+contracts/
+├── contracts/
+│   └── core/
+│       └── BasePaymaster.sol       # Abstract ERC-4337 paymaster base
+├── ignition/
+│   └── modules/                    # Hardhat Ignition deployment modules
+├── scripts/
+│   └── send-op-tx.ts              # Example OP mainnet transaction script
+├── hardhat.config.ts              # Hardhat 3 configuration
+├── package.json                   # Dependencies and scripts
+├── .prettierrc.json              # Prettier configuration
+├── .solhint.json                 # Solhint linter rules
+└── tsconfig.json                 # TypeScript configuration
+```
 
 ## Security Considerations
 
-1. **Pool ID Derivation**: Pool IDs are derived from token addresses using `uint256(tokenAddress)`. This creates a 1:1 mapping between tokens and pools.
+1. **Entry Point Trust**: The paymaster trusts the canonical entry point contract completely. Only the entry point should call `validatePaymasterUserOp` and `postOp`.
 
-2. **Deposit Value Matching**: The `deposit()` function requires `msg.value == assets`. Always ensure these values match when calling from contracts or frontends.
+2. **Prefund Calculation**: Carefully validate that `requiredPreFund` is sufficient before approving operations. Insufficient prefunding will cause the operation to fail.
 
-3. **Oracle Dependency**: Pool pricing depends on the configured oracle. Ensure oracles are reliable and manipulation-resistant.
+3. **Gas Price Handling**: Remember that `actualUserOpFeePerGas` in `postOp` may differ from `tx.gasprice` due to operation bundling.
 
-4. **Fee Bounds**: Verify that `lpFeeBps` and `rebalancingFeeBps` are within reasonable bounds to prevent excessive fees.
+4. **Context Data**: Context returned from validation is passed to `postOp`. Ensure it contains all necessary data and cannot be manipulated.
 
-## ABI
+5. **Reentrancy**: Consider reentrancy risks in `_postOp` implementations, especially when making external calls.
 
-The contract ABI is available at [`frontend/lib/abi/universalPaymaster.ts`](../frontend/lib/abi/universalPaymaster.ts).
+## Frontend Integration
+
+The frontend integrates with paymaster contracts through Viem. See [`frontend/lib/sc-actions.ts`](../frontend/lib/sc-actions.ts) for integration examples.
+
+Contract ABIs are defined in [`frontend/lib/abi/`](../frontend/lib/abi/).
+
+## Resources
+
+- [ERC-4337 Specification](https://eips.ethereum.org/EIPS/eip-4337)
+- [OpenZeppelin ERC-4337 Docs](https://docs.openzeppelin.com/contracts/5.x/api/account)
+- [Hardhat 3 Documentation](https://hardhat.org/docs)
+- [Account Abstraction by eth-infinitism](https://github.com/eth-infinitism/account-abstraction)
 
 ## License
 
