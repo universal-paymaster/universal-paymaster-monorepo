@@ -130,6 +130,10 @@ export function ControlOrb({ options }: ControlOrbProps) {
     }
     window.requestAnimationFrame(() => setIsTransferPanelOpen(true));
   }, []);
+  const closeTransferPanel = useCallback(
+    () => setIsTransferPanelOpen(false),
+    []
+  );
 
   const defaultOptions = useMemo(
     () =>
@@ -305,11 +309,11 @@ export function ControlOrb({ options }: ControlOrbProps) {
 
       <SlideOver
         isOpen={isTransferPanelOpen}
-        onClose={() => setIsTransferPanelOpen(false)}
+        onClose={closeTransferPanel}
         eyebrowText="Transfer"
         ariaLabel="Send transfer panel"
       >
-        <TransferPanel />
+        <TransferPanel onClose={closeTransferPanel} />
       </SlideOver>
 
       <SlideOver
