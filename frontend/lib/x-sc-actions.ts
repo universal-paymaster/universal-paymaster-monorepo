@@ -97,49 +97,57 @@ export async function createEilSdk(): Promise<{
 }
 
 export async function crossChainTransfer(
-  sdk: CrossChainSdk,
-  account: IMultiChainSmartAccount,
+  tokenAddress: Address,
+  tokenLabel: string,
+  amount: bigint,
   recipient: Address,
   paymaster: Address,
-  usdc: MultichainToken,
-  amount: bigint,
   callback: ExecCallback
 ): Promise<void> {
+  const { sdk, account } = await createEilSdk();
+
   const [chainId0, chainId1] = chainIds;
 
   const useropOverride = {
     maxFeePerGas: BigInt(1000000000),
     maxPriorityFeePerGas: BigInt(10),
   };
-
   const paymasterOverride = {
     paymaster: paymaster ?? '0xc7F3D98ed15c483C0f666d9F3EA0Dc7abEe77ca2',
     paymasterVerificationGasLimit: BigInt(100_000),
     paymasterPostOpGasLimit: BigInt(0),
   };
 
+  const token: MultichainToken | undefined = sdk?.createToken(
+    tokenLabel,
+    tokenAddress
+  );
+
   const executor = await sdk
     .createBuilder()
+
     .startBatch(chainId0)
     .addVoucherRequest({
       ref: 'voucher_request_1',
       destinationChainId: chainId1,
-      tokens: [{ token: usdc, amount: amount }],
+      tokens: [{ token, amount }],
     })
     .overrideUserOp(useropOverride)
     .overrideUserOp(paymasterOverride)
     .endBatch()
+
     .startBatch(chainId1)
     .useAllVouchers()
     .addAction(
       new TransferAction({
-        token: usdc,
+        token,
         recipient,
         amount,
       })
     )
     .overrideUserOp(useropOverride)
     .endBatch()
+
     .useAccount(account)
     .buildAndSign();
 

@@ -1,122 +1,178 @@
 'use client';
 
 import clsx from 'clsx';
-import { useMemo, useState } from 'react';
+import Image from 'next/image';
+import { useState } from 'react';
 
-import { Dropdown, type DropdownOption } from '@/components/ui/dropdown';
+import { Address } from 'viem';
 import { LiquidGlassButton } from '@/components/ui/liquid-glass-button';
+import { crossChainTransfer } from '@/lib/x-sc-actions';
+import { Dropdown, type DropdownOption } from '@/components/ui/dropdown';
+import { arbitrum, base, mainnet, optimism } from 'viem/chains';
 
 type TransferPanelProps = {
   onClose?: () => void;
   className?: string;
 };
 
-const iconClass =
-  'flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br text-[11px] font-semibold text-white shadow-inner shadow-white/30 text-[11px] font-semibold text-white shadow-inner shadow-white/30';
-const assetOptions: DropdownOption[] = [
+type AssetOption = DropdownOption & {
+  ticker: string;
+  address: string;
+  decimals: number;
+};
+
+type ChainOption = DropdownOption & {
+  chainId: number;
+};
+
+const renderIcon = (src: string, alt: string) => (
+  <Image
+    src={src}
+    alt={alt}
+    width={28}
+    height={28}
+    className="h-7 w-7 object-contain"
+  />
+);
+
+const assetOptions: AssetOption[] = [
   {
     value: 'ETH',
-    label: 'Ether (ETH)',
-    icon: (
-      <span className={`${iconClass} from-indigo-500 via-sky-400 to-cyan-300 `}>
-        ETH
-      </span>
-    ),
+    label: 'Ether',
+    ticker: 'ETH',
+    address: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+    decimals: 18,
+    icon: renderIcon('/svg/eth.svg', 'Ethereum'),
   },
   {
-    value: 'BTC',
-    label: 'Bitcoin (BTC)',
-    icon: (
-      <span
-        className={`${iconClass} from-amber-400 via-orange-400 to-amber-500 `}
-      >
-        BTC
-      </span>
-    ),
+    value: 'WBTC',
+    label: 'Wrapped Bitcoin',
+    ticker: 'WBTC',
+    address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+    decimals: 8,
+    icon: renderIcon('/svg/bitcoin.svg', 'Bitcoin'),
   },
   {
     value: 'USDC',
-    label: 'USD Coin (USDC)',
-    icon: (
-      <span className={`${iconClass} from-blue-500 via-sky-400 to-cyan-400 `}>
-        USDC
-      </span>
-    ),
+    label: 'USD Coin',
+    ticker: 'USDC',
+    address: '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    decimals: 6,
+    icon: renderIcon('/svg/usdc.svg', 'USD Coin'),
+  },
+  {
+    value: 'DAI',
+    label: 'Dai',
+    ticker: 'DAI',
+    address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+    decimals: 18,
+    icon: renderIcon('/svg/dai.svg', 'Dai'),
+  },
+  {
+    value: 'USDT',
+    label: 'Tether USD',
+    ticker: 'USDT',
+    address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+    decimals: 6,
+    icon: renderIcon('/svg/usdt.svg', 'Tether'),
   },
 ];
 
-const chainOptions: DropdownOption[] = [
+const chainOptions: ChainOption[] = [
   {
-    value: 'Ethereum',
-    label: 'Ethereum Mainnet',
-    icon: (
-      <span
-        className={`${iconClass} from-slate-900 via-slate-700 to-slate-500 `}
-      >
-        ETH
-      </span>
-    ),
-  },
-  {
-    value: 'Polygon',
-    label: 'Polygon PoS',
-    icon: (
-      <span
-        className={`${iconClass} from-fuchsia-500 via-purple-500 to-indigo-50`}
-      >
-        POLY
-      </span>
-    ),
+    value: 'Arbitrum',
+    chainId: arbitrum.id,
+    label: 'Arbitrum One',
+    icon: renderIcon('/svg/arbitrum.svg', 'Arbitrum'),
   },
   {
     value: 'Base',
+    chainId: base.id,
     label: 'Base',
-    icon: (
-      <span className={`${iconClass} from-blue-600 via-sky-500 to-cyan-400 `}>
-        BASE
-      </span>
-    ),
+    icon: renderIcon('/svg/base.svg', 'Arbitrum'),
+  },
+  {
+    value: 'Ethereum',
+    chainId: mainnet.id,
+    label: 'Ethereum Mainnet',
+    icon: renderIcon('/svg/eth.svg', 'Ethereum'),
+  },
+  {
+    value: 'Optimism',
+    chainId: optimism.id,
+    label: 'Optimism',
+    icon: renderIcon('/svg/optimism.svg', 'Optimism'),
   },
 ];
 
 function TransferPanel({ className, onClose }: TransferPanelProps) {
   const [asset, setAsset] = useState(assetOptions[0].value);
-  const [chain, setChain] = useState(chainOptions[0].value);
-  const [amount, setAmount] = useState('');
-  const [address, setAddress] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [originChain, setOriginChain] = useState(chainOptions[0].value);
+  const [destinationChain, setDestinationChain] = useState(chainOptions[1]?.value ?? chainOptions[0].value); // prettier-ignore
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const amountValue = useMemo(() => Number(amount), [amount]);
-  const isAmountValid = Number.isFinite(amountValue) && amountValue > 0;
-  const isAddressValid = address.trim().length > 0;
-  const isFormValid = isAmountValid && isAddressValid;
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
 
-    if (!isFormValid) {
-      setError('Enter a valid amount and receiver address.');
+    const formData = new FormData(event.currentTarget);
+    const assetInput = formData.get('asset')?.toString() ?? asset;
+    const amountInput = formData.get('amount')?.toString().trim() ?? '';
+    const addressInput = formData.get('address')?.toString().trim() ?? '';
+    const originChainInput = formData.get('originChain')?.toString() ?? originChain; // prettier-ignore
+    const destinationChainInput = formData.get('destinationChain')?.toString() ?? destinationChain; // prettier-ignore
+
+    const selectedAsset = assetOptions.find(
+      (option) => option.value === assetInput
+    );
+    const selectedOriginChain = chainOptions.find(
+      (option) => option.value === originChainInput
+    );
+    const selectedDestinationChain = chainOptions.find(
+      (option) => option.value === destinationChainInput
+    );
+
+    if (
+      selectedAsset == null ||
+      selectedOriginChain == null ||
+      selectedDestinationChain == null
+    ) {
+      console.warn('Cannot submit: selection not found in options.');
+      return;
+    }
+
+    if (!amountInput || !addressInput) {
+      console.log('Cannot submit: amount or address is missing.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        asset,
-        amount: amountValue,
-        chain,
-        address: address.trim(),
+      const params = {
+        chainId0: selectedOriginChain.chainId,
+        chainId1: selectedDestinationChain.chainId,
+        tokenAddress: selectedAsset.address,
+        tokenTicker: selectedAsset.ticker,
+        paymaster: process.env.NEXT_PUBLIC_PAYMASTER_ADDRESS,
+        amount: amountInput,
+        recepient: addressInput,
       };
 
-      // Replace with actual transfer action when backend or wallet wiring is ready.
-      console.log('Submitting transfer:', payload);
+      const callbackFn = () => {};
 
-      onClose?.();
+      await crossChainTransfer(
+        params.tokenAddress as Address,
+        params.tokenTicker,
+        BigInt(params.amount),
+        params.recepient as Address,
+        params.paymaster as Address,
+        callbackFn
+      );
+
+      // Replace with actual transfer action when backend or wallet wiring is ready.
+      console.log('Submitting transfer:', params);
     } catch (err) {
-      setError('Something went wrong while submitting the transfer.');
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -126,7 +182,7 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className={clsx(['overflow-hidden h-full max-h-screen p-6', , className])}
+      className={clsx(['overflow-hidden h-full max-h-screen p-6', className])}
     >
       <div className="flex flex-col gap-10 h-full">
         <div className="pt-5 space-y-10">
@@ -154,8 +210,8 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
               </label>
               <Dropdown
                 options={chainOptions}
-                value={chain}
-                onChange={(option) => setChain(option.value)}
+                value={originChain}
+                onChange={(option) => setOriginChain(option.value)}
                 buttonClassName="bg-white/80"
               />
             </div>
@@ -173,12 +229,11 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
                 <div className="rounded-2xl border border-white/60 bg-white/75 px-3 py-1 items-center flex h-[46px] shadow-md">
                   <input
                     id="transfer-amount"
+                    name="amount"
                     type="number"
                     inputMode="decimal"
                     min="0"
                     step="any"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
                     required
                     className="w-full border-none bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
                     placeholder="0.00"
@@ -221,8 +276,8 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
               </label>
               <Dropdown
                 options={chainOptions}
-                value={chain}
-                onChange={(option) => setChain(option.value)}
+                value={destinationChain}
+                onChange={(option) => setDestinationChain(option.value)}
                 buttonClassName="bg-white/80"
               />
             </div>
@@ -237,9 +292,8 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
               <div className="rounded-2xl border border-white/60 bg-white/75 px-3 py-1 items-center flex h-[46px] shadow-md">
                 <input
                   id="transfer-address"
+                  name="address"
                   type="text"
-                  value={address}
-                  onChange={(event) => setAddress(event.target.value)}
                   required
                   autoComplete="off"
                   spellCheck={false}
@@ -253,19 +307,18 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
 
         {/* 3. submit button */}
         <div className="flex w-full gap-5">
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-2xl border border-rose-200/80 bg-rose-50/80 px-4 py-3 text-sm font-semibold text-rose-600 shadow-[0_10px_25px_rgba(225,29,72,0.12)]"
-            >
-              {error}
-            </p>
-          ) : null}
-
+          {/* hidden form controls to mirror dropdown selections */}
+          <input type="hidden" name="asset" value={asset} />
+          <input type="hidden" name="originChain" value={originChain} />
+          <input
+            type="hidden"
+            name="destinationChain"
+            value={destinationChain}
+          />
           <div className="flex w-full px-10 items-center justify-center mt-15">
             <LiquidGlassButton
               type="submit"
-              disabled={!isFormValid || isSubmitting}
+              disabled={isSubmitting}
               className="flex-1 justify-center text-center"
             >
               {isSubmitting ? 'Submitting...' : 'Submit transfer'}
