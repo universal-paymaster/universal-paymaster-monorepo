@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Universal Paymaster is a Next.js-based frontend application for managing liquidity pools that sponsor blockchain transactions. The app provides a visual interface for pool management, authentication via Privy, and smart contract interactions using Viem.
+Universal Paymaster is a full-stack blockchain application consisting of smart contracts (Hardhat 3) and a frontend (Next.js). The system manages liquidity pools that sponsor blockchain transactions using ERC-6909 multi-token vaults.
 
 ## Commands
 
+### Frontend
+
 ```bash
-# Navigate to frontend directory for all commands
 cd frontend
 
 # Development
@@ -23,11 +24,40 @@ pnpm start            # Start production server
 pnpm lint             # Run ESLint
 ```
 
+### Contracts
+
+```bash
+cd contracts
+
+# Testing
+npx hardhat test              # Run all tests
+npx hardhat test solidity     # Run Solidity tests only
+npx hardhat test nodejs       # Run Node.js tests only
+
+# Deployment
+npx hardhat ignition deploy ignition/modules/Counter.ts                    # Local
+npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts  # Sepolia
+```
+
 ## Architecture
 
-### Smart Contract Integration
+### Smart Contracts
 
-The app interfaces with a Universal Paymaster smart contract that implements ERC-6909 vault functionality for liquidity pools. Contract interactions are centralized in [lib/sc-actions.ts](frontend/lib/sc-actions.ts):
+The Universal Paymaster contract implements two main components:
+- **UniversalPaymaster**: Pool management and rebalancing logic
+- **ERC6909NativeEntryPointVault**: Multi-token vault for ETH deposits/withdrawals
+
+Full contract documentation with diagrams is in [contracts/README.md](contracts/README.md).
+
+Key contract patterns:
+- **Pool ID Derivation**: `poolId = uint256(tokenAddress)` creates a 1:1 token-to-pool mapping
+- **ERC-6909 Standard**: Enables efficient multi-token vault management in a single contract
+- **Fee Structure**: Two-tier fees (LP fees + rebalancing fees) in basis points
+- **Oracle Dependency**: Each pool uses a price oracle for accurate token valuations
+
+### Frontend Smart Contract Integration
+
+Contract interactions are centralized in [lib/sc-actions.ts](frontend/lib/sc-actions.ts):
 
 - **Pool ID Derivation**: Pool IDs are derived from token addresses using `poolIdFromToken(token: Address): bigint`
 - **Client Setup**: Uses Viem with separate `publicClient` (reads) and `walletClient` (writes via MetaMask)
