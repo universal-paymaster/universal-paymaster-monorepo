@@ -1,5 +1,7 @@
-import { sepolia } from '@reown/appkit/networks';
+import { arbitrum, base } from 'viem/chains';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
+
+import { cookieStorage, createStorage } from 'wagmi';
 
 export const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
 
@@ -7,13 +9,17 @@ if (!projectId) {
   throw new Error('Reown project ID is not defined');
 }
 
-export const networks = [sepolia];
+export const networks = [base, arbitrum];
+export const chainIds = [BigInt(base.id), BigInt(arbitrum.id)];
 
 export const wagmiAdapter = new WagmiAdapter({
+  storage: createStorage({
+    storage: cookieStorage,
+  }),
+  ssr: true,
   projectId,
   networks,
-  ssr: false,
   batch: { multicall: true },
 });
 
-export const config = wagmiAdapter.wagmiConfig;
+export const wagmiConfig = wagmiAdapter.wagmiConfig;
