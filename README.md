@@ -1,6 +1,6 @@
 # Universal Paymaster 🪐
 
-A Next.js frontend application for managing liquidity pools that sponsor blockchain transactions. Built with React, Three.js, and Viem for seamless smart contract interactions.
+A full-stack blockchain application for managing liquidity pools that sponsor transactions. Built with Hardhat 3 for smart contract development and Next.js for the frontend interface.
 
 **Made in Argentina** 🇦🇷
 
@@ -14,11 +14,20 @@ A Next.js frontend application for managing liquidity pools that sponsor blockch
 
 ## Tech Stack
 
+### Smart Contracts
+- **Framework**: Hardhat 3 (Beta)
+- **Solidity**: 0.8.28
+- **Testing**: Foundry-compatible tests + Node.js test runner
+- **Development**: Viem for Ethereum interactions
+
+### Frontend
 - **Framework**: Next.js 16 (App Router)
 - **UI**: React 19, Tailwind CSS 4
 - **3D Graphics**: Three.js, React Three Fiber, Drei
 - **Blockchain**: Viem, Privy Auth
 - **Type Safety**: TypeScript, Zod
+
+### Monorepo
 - **Package Manager**: pnpm
 
 ## Getting Started
@@ -33,13 +42,20 @@ A Next.js frontend application for managing liquidity pools that sponsor blockch
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd universal-paymaster-monorepo/frontend
+cd universal-paymaster-monorepo
 
-# Install dependencies
+# Install frontend dependencies
+cd frontend
+pnpm install
+
+# Install contract dependencies
+cd ../contracts
 pnpm install
 ```
 
 ### Environment Setup
+
+#### Frontend Environment
 
 Create a `.env.local` file in the `frontend` directory:
 
@@ -52,7 +68,20 @@ NEXT_PUBLIC_PAYMASTER_ADDRESS=0x...
 
 All environment variables are validated at build time using Zod.
 
+#### Contracts Environment (Optional)
+
+For deploying contracts to Sepolia, set configuration variables:
+
+```bash
+# Set private key using hardhat-keystore
+cd contracts
+npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+npx hardhat keystore set SEPOLIA_RPC_URL
+```
+
 ### Development
+
+#### Frontend Development
 
 ```bash
 cd frontend
@@ -60,6 +89,27 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+#### Smart Contract Development
+
+```bash
+cd contracts
+
+# Run all tests
+npx hardhat test
+
+# Run Solidity tests only
+npx hardhat test solidity
+
+# Run Node.js tests only
+npx hardhat test nodejs
+
+# Deploy to local network
+npx hardhat ignition deploy ignition/modules/Counter.ts
+
+# Deploy to Sepolia
+npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
+```
 
 ### Building for Production
 
@@ -72,28 +122,54 @@ pnpm start
 ## Project Structure
 
 ```
-frontend/
-├── app/                    # Next.js App Router pages
-│   ├── page.tsx           # Landing page with 3D globe
-│   ├── pools/             # Pool management routes
-│   └── providers.tsx      # App-wide providers (Privy)
-├── components/            # React components
-│   ├── ui/               # Reusable UI components
-│   ├── globe.tsx         # 3D globe visualization
-│   ├── control-orb.tsx   # Floating navigation control
-│   └── pool-*.tsx        # Pool-specific components
-├── config/               # Configuration
-│   └── env.ts           # Environment variable validation
-├── lib/                 # Utilities and integrations
-│   ├── abi/            # Smart contract ABIs
-│   └── sc-actions.ts   # Smart contract action functions
-├── data/               # Mock/static data
-└── public/            # Static assets
+universal-paymaster-monorepo/
+├── contracts/                 # Smart contract development
+│   ├── hardhat.config.ts     # Hardhat 3 configuration
+│   ├── scripts/              # Deployment and utility scripts
+│   │   └── send-op-tx.ts    # Example OP mainnet transaction
+│   ├── ignition/             # Hardhat Ignition deployment modules
+│   └── package.json          # Contract dependencies (Hardhat 3, Viem)
+│
+└── frontend/                  # Next.js application
+    ├── app/                   # Next.js App Router pages
+    │   ├── page.tsx          # Landing page with 3D globe
+    │   ├── pools/            # Pool management routes
+    │   └── providers.tsx     # App-wide providers (Privy)
+    ├── components/           # React components
+    │   ├── ui/              # Reusable UI components
+    │   ├── globe.tsx        # 3D globe visualization
+    │   ├── control-orb.tsx  # Floating navigation control
+    │   └── pool-*.tsx       # Pool-specific components
+    ├── config/              # Configuration
+    │   └── env.ts          # Environment variable validation
+    ├── lib/                # Utilities and integrations
+    │   ├── abi/           # Smart contract ABIs
+    │   └── sc-actions.ts  # Smart contract action functions
+    ├── data/              # Mock/static data
+    └── public/           # Static assets
 ```
 
-## Smart Contract Integration
+## Smart Contracts
 
-The app interacts with Universal Paymaster contracts through [lib/sc-actions.ts](frontend/lib/sc-actions.ts):
+### Development with Hardhat 3
+
+This project uses Hardhat 3 (Beta) with the following features:
+
+- **Native TypeScript support** with ESM modules
+- **Viem integration** for all Ethereum interactions
+- **Foundry-compatible tests** for Solidity unit testing
+- **Node.js test runner** (`node:test`) for integration tests
+- **Network simulation** for both L1 and OP chains
+
+### Supported Networks
+
+- **hardhatMainnet**: Simulated L1 chain for testing
+- **hardhatOp**: Simulated OP chain for L2 development
+- **sepolia**: Ethereum Sepolia testnet
+
+### Contract Integration
+
+The frontend interacts with Universal Paymaster contracts through [lib/sc-actions.ts](frontend/lib/sc-actions.ts):
 
 - **`createPool()`**: Initialize a new liquidity pool
 - **`supplyToPool()`**: Deposit ETH into a pool
@@ -101,6 +177,8 @@ The app interacts with Universal Paymaster contracts through [lib/sc-actions.ts]
 - **`rebalancePool()`**: Rebalance pool liquidity
 
 Pool IDs are derived from token addresses using `poolIdFromToken(token: Address)`.
+
+Contract ABIs are defined in [frontend/lib/abi/](frontend/lib/abi/).
 
 ## Key Components
 
@@ -163,6 +241,8 @@ This project was built during a hackathon. Contributions are welcome!
 
 ## Acknowledgments
 
-- Built with [Next.js](https://nextjs.org/)
+- Smart contracts built with [Hardhat 3](https://hardhat.org/)
+- Frontend built with [Next.js](https://nextjs.org/)
 - Authentication by [Privy](https://privy.io/)
 - 3D graphics powered by [Three.js](https://threejs.org/)
+- Blockchain interactions via [Viem](https://viem.sh/)
