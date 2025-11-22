@@ -1,34 +1,30 @@
 'use client';
 
-import { sepolia } from 'viem/chains';
+import { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { cookieToInitialState, WagmiProvider } from 'wagmi';
-import { ChainAdapter, createAppKit } from '@reown/appkit/react';
-import { type PropsWithChildren } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Config, cookieToInitialState, WagmiProvider } from 'wagmi';
 
 import { ControlOrb } from '@/components/control-orb';
 import { projectId, wagmiAdapter } from '@/config/wagmi-config';
-
-const queryClient = new QueryClient();
+import { createAppKit } from '@reown/appkit/react';
+import { arbitrum, base } from '@reown/appkit/networks';
 
 if (!projectId) {
-  throw new Error('Project ID is not defined');
+  throw new Error('Reown project ID is not defined');
 }
 
-const metadata = {
-  name: 'universal-paymaster',
-  description: 'Universal Paymaster',
-  url: 'universalpaymaster.com',
-  icons: [''],
-};
-
 createAppKit({
-  adapters: [wagmiAdapter as ChainAdapter],
+  adapters: [wagmiAdapter],
   projectId,
-  metadata: metadata,
-  networks: [sepolia],
-  defaultNetwork: sepolia,
+  metadata: {
+    name: 'universal-paymaster',
+    description: 'Universal Paymaster',
+    url: 'universalpaymaster.com',
+    icons: [''],
+  },
+  networks: [base, arbitrum],
+  defaultNetwork: base,
   enableWalletConnect: true,
   featuredWalletIds: [
     'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // metamask
@@ -42,11 +38,26 @@ createAppKit({
   },
 });
 
-export const Providers = ({ children }: PropsWithChildren) => {
+const queryClient = new QueryClient();
+
+export const Providers = ({
+  children,
+  cookies,
+}: {
+  cookies: string | null;
+  children: ReactNode;
+}) => {
   const pathname = usePathname();
+  const initialState = cookieToInitialState(
+    wagmiAdapter.wagmiConfig as Config,
+    cookies
+  );
 
   return (
-    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+    <WagmiProvider
+      config={wagmiAdapter.wagmiConfig}
+      initialState={initialState}
+    >
       <QueryClientProvider client={queryClient}>
         {children}
         {pathname != '/' && <ControlOrb />}

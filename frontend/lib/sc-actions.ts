@@ -51,7 +51,8 @@ export const publicClient = createPublicClient({
 });
 export const walletClient = createWalletClient({
   chain: mainnet,
-  transport: custom(window.ethereum!),
+  // @ts-expect-error - ignore
+  transport: custom(window.ethereum),
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
