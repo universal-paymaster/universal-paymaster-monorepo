@@ -151,6 +151,23 @@ universal-paymaster-monorepo/
 
 ## Smart Contracts
 
+The Universal Paymaster protocol implements a liquidity pool system that sponsors blockchain transactions. The contracts use ERC-6909 multi-token vault standard for efficient pool management.
+
+📖 **[Read the full contracts documentation →](contracts/README.md)**
+
+### Quick Overview
+
+The system allows liquidity providers to:
+- Deposit ETH into token-specific pools
+- Earn fees from transaction sponsorship and rebalancing
+- Withdraw funds plus accumulated fees
+
+Key features:
+- **Multi-token support** via ERC-6909 standard
+- **Fee-based incentives** for LPs and rebalancers
+- **Oracle-based pricing** for accurate token valuations
+- **Pool rebalancing** with discounted rates
+
 ### Development with Hardhat 3
 
 This project uses Hardhat 3 (Beta) with the following features:
@@ -179,6 +196,8 @@ The frontend interacts with Universal Paymaster contracts through [lib/sc-action
 Pool IDs are derived from token addresses using `poolIdFromToken(token: Address)`.
 
 Contract ABIs are defined in [frontend/lib/abi/](frontend/lib/abi/).
+
+For detailed documentation including architecture diagrams, function specifications, and integration examples, see the [contracts README](contracts/README.md).
 
 ## Key Components
 
