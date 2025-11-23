@@ -31,7 +31,7 @@ The paymaster operates through:
 
 ## Integration with EIL
 
-Open Paymaster strongly complements the [Ethereum Interoperability Layer (EIL)](https://github.com/ethereum-optimism/EIL) to achieve a truly unified Ethereum experience:
+Open Paymaster strongly complements the [Ethereum Interoperability Layer (EIL)](https://docs.ethereuminteroplayer.com/) to achieve a truly unified Ethereum experience:
 
 - **Open Paymaster**: Covers gas on the origin chain
 - **EIL CrossChainPaymaster**: Covers gas on destination chains
