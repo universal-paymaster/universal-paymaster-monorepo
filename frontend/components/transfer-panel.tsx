@@ -82,16 +82,16 @@ const assetOptions: AssetOption[] = [
 
 const chainOptions: ChainOption[] = [
   {
-    value: 'Arbitrum',
-    chainId: arbitrum.id,
-    label: 'Arbitrum One',
-    icon: renderIcon('/svg/arbitrum.svg', 'Arbitrum'),
-  },
-  {
     value: 'Base',
     chainId: base.id,
     label: 'Base',
     icon: renderIcon('/svg/base.svg', 'Arbitrum'),
+  },
+  {
+    value: 'Arbitrum',
+    chainId: arbitrum.id,
+    label: 'Arbitrum One',
+    icon: renderIcon('/svg/arbitrum.svg', 'Arbitrum'),
   },
   {
     value: 'Ethereum',

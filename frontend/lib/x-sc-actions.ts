@@ -84,13 +84,13 @@ export async function crossChainTransfer(
   const chainId0 = BigInt(base.id);
   const chainId1 = BigInt(arbitrum.id);
 
-  const userOpOverrideInOriginChain = {
-    paymaster: paymaster === undefined ? "0xc7F3D98ed15c483C0f666d9F3EA0Dc7abEe77ca2" : paymaster, // prettier-ignore
-    paymasterVerificationGasLimit: BigInt(100_000),
-    paymasterPostOpGasLimit: BigInt(100_000),
-    maxFeePerGas: BigInt(100_000_000),
-    maxPriorityFeePerGas: BigInt(100),
-  };
+  // const userOpOverrideInOriginChain = {
+  //   paymaster: paymaster === undefined ? "0xc7F3D98ed15c483C0f666d9F3EA0Dc7abEe77ca2" : paymaster, // prettier-ignore
+  //   paymasterVerificationGasLimit: BigInt(100_000),
+  //   paymasterPostOpGasLimit: BigInt(100_000),
+  //   maxFeePerGas: BigInt(100_000_000),
+  //   maxPriorityFeePerGas: BigInt(100),
+  // };
   const userOpOverrideInDestinyChain = {
     maxFeePerGas: BigInt(100_000_000),
     maxPriorityFeePerGas: BigInt(100),
@@ -107,7 +107,6 @@ export async function crossChainTransfer(
       destinationChainId: chainId1,
       tokens: [{ token, amount }],
     })
-    .overrideUserOp(userOpOverrideInOriginChain)
     .endBatch()
 
     .startBatch(chainId1)
