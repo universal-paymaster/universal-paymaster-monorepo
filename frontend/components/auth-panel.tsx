@@ -1,41 +1,139 @@
 "use client"
 
+import { useCallback, useMemo } from "react"
+import { Copy, Loader2, LogOut, Wallet } from "lucide-react"
+import { useAccount, useBalance, useConnect, useDisconnect, useSwitchChain } from "wagmi"
+
+import { Dropdown, type DropdownOption } from "./ui/dropdown"
 import { LiquidGlassButton } from "./ui/liquid-glass-button"
-import { useCallback, useState } from "react"
-import { Wallet, LogOut, Copy, Loader2 } from "lucide-react"
 
-
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const formatAddress = (value?: string) =>
+  value ? `${value.slice(0, 6)}...${value.slice(-4)}` : ""
 
 const AuthPanel = () => {
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [isConnected, setIsConnected] = useState(false)
-  const [address, setAddress] = useState("")
+  const { address, chain, isConnected, status: accountStatus } = useAccount()
+  const { data: balance, isLoading: isBalanceLoading } = useBalance({
+    address,
+    chainId: chain?.id,
+    query: { enabled: Boolean(address) },
+  })
+  const { connectAsync, connectors, isPending: isConnectPending } = useConnect()
+  const { disconnectAsync, isPending: isDisconnectPending } = useDisconnect()
+  const {
+    switchChainAsync,
+    chains: switchableChains,
+    isPending: isSwitchPending,
+  } = useSwitchChain()
+
+  const isActionPending =
+    isConnectPending ||
+    isDisconnectPending ||
+    isSwitchPending ||
+    accountStatus === "connecting" ||
+    accountStatus === "reconnecting"
+
+  const formattedAddress = useMemo(
+    () => formatAddress(address),
+    [address]
+  )
+
+  const balanceDisplay = useMemo(() => {
+    if (!isConnected || !address) {
+      return "0.000 ETH"
+    }
+    if (isBalanceLoading) {
+      return "..."
+    }
+    if (balance == null) {
+      return "--"
+    }
+
+    const formatted = Number(balance.formatted).toLocaleString(undefined, {
+      maximumFractionDigits: 4,
+    })
+
+    return `${formatted} ${balance.symbol}`
+  }, [address, balance, isBalanceLoading, isConnected])
 
   const handleLogin = useCallback(async () => {
-    setIsConnecting(true)
-    try {
-      // Mock connection delay
-      await delay(1500)
-      // Mock ETH address
-      setAddress("0x71C...9A23")
-      setIsConnected(true)
-    } finally {
-      setIsConnecting(false)
+    const connector = connectors[0]
+    if (!connector) {
+      console.warn("No wallet connectors available.")
+      return
     }
-  }, [])
+
+    try {
+      await connectAsync({ connector })
+    } catch (error) {
+      console.error("Failed to connect wallet", error)
+    }
+  }, [connectAsync, connectors])
 
   const handleLogout = useCallback(async () => {
-    setIsConnecting(true)
     try {
-      await delay(800)
-      setIsConnected(false)
-      setAddress("")
-    } finally {
-      setIsConnecting(false)
+      await disconnectAsync()
+    } catch (error) {
+      console.error("Failed to disconnect wallet", error)
     }
-  }, [])
+  }, [disconnectAsync])
+
+  const handleCopyAddress = useCallback(async () => {
+    if (!address) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(address)
+    } catch (error) {
+      console.error("Failed to copy address", error)
+    }
+  }, [address])
+
+  const networkOptions = useMemo(
+    () =>
+      switchableChains.map((item) => ({
+        value: String(item.id),
+        label: item.name,
+      })),
+    [switchableChains]
+  )
+
+  const currentNetworkValue = useMemo(
+    () => (chain?.id ? String(chain.id) : undefined),
+    [chain?.id]
+  )
+
+  const resolvedNetworkValue = useMemo(
+    () => currentNetworkValue ?? networkOptions[0]?.value,
+    [currentNetworkValue, networkOptions]
+  )
+
+  const handleNetworkChange = useCallback(
+    async (option: DropdownOption) => {
+      if (isActionPending) {
+        return
+      }
+
+      const targetChain = switchableChains.find(
+        (item) => String(item.id) === option.value
+      )
+      if (!targetChain || targetChain.id === chain?.id) {
+        return
+      }
+
+      if (!switchChainAsync) {
+        console.warn("Switch chain is not available.")
+        return
+      }
+
+      try {
+        await switchChainAsync({ chainId: targetChain.id })
+      } catch (error) {
+        console.error("Failed to switch chain", error)
+      }
+    },
+    [chain?.id, isActionPending, switchChainAsync, switchableChains]
+  )
 
   return (
     <div className="flex h-full flex-col p-6">
@@ -54,20 +152,32 @@ const AuthPanel = () => {
             <div className="overflow-hidden border-slate-200 bg-slate-50/50 p-0">
               <div className="bg-linear-to-r from-slate-900 to-slate-800 p-4 text-white">
                 <div className="mb-1 text-xs text-slate-400">Total Balance</div>
-                <div className="text-2xl font-bold">14.203 ETH</div>
+                <div className="text-2xl font-bold">{balanceDisplay}</div>
               </div>
               <div className="p-4">
                 <div className="mb-1 text-xs font-medium text-slate-500">Wallet Address</div>
-                <div className="flex items-center justify-between rounded-md bg-white border px-3 py-2 shadow-sm">
+                <div className="flex items-center justify-between rounded-md bg-white px-3 py-2 shadow-sm">
                   <div className="flex items-center gap-2">
                     <div className="rounded-full bg-indigo-100 p-1.5 text-indigo-600">
                       <Wallet className="h-3.5 w-3.5" />
                     </div>
-                    <span className="font-mono text-sm font-medium text-slate-700">{address}</span>
+                    <span className="font-mono text-sm font-medium text-slate-700">{formattedAddress}</span>
                   </div>
-                  <button className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                  <button
+                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                    onClick={handleCopyAddress}
+                    disabled={!address || isActionPending}
+                  >
                     <Copy className="h-3.5 w-3.5" />
                   </button>
+                </div>
+                <div className="mt-4 space-y-2 h-[200px]">
+                  <div className="text-xs font-medium text-slate-500">Network</div>
+                  <Dropdown
+                    options={networkOptions}
+                    value={resolvedNetworkValue}
+                    onChange={handleNetworkChange}
+                  />
                 </div>
               </div>
             </div>
@@ -94,7 +204,7 @@ const AuthPanel = () => {
       <div className="space-y-3 h-[150px]">
         {isConnected ? (
           <>
-            <LiquidGlassButton  className="flex items-center justify-center h-10 w-full gap-2" onClick={handleLogout} disabled={isConnecting}>
+            <LiquidGlassButton  className="flex items-center justify-center h-10 w-full gap-2" onClick={handleLogout} disabled={isActionPending}>
               <p>Logout</p>
               <LogOut className="h-4 w-4" />
             </LiquidGlassButton>
@@ -103,9 +213,9 @@ const AuthPanel = () => {
           <LiquidGlassButton
             className="w-full gap-2 h-10 flex items-center justify-center"
             onClick={handleLogin}
-            disabled={isConnecting}
+            disabled={isActionPending || connectors.length === 0}
           >
-            {isConnecting ? (
+            {isActionPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
               </>
