@@ -15,7 +15,7 @@ import {UserOpHelper} from "../test/utils/UserOpHelper.sol";
 // Mocks
 import {SimpleAccount7702Mock} from "../test/mocks/SimpleAccount7702Mock.sol";
 import {ERC20Mock} from "../test/mocks/ERC20Mock.sol";
-import {OracleMock} from "../test/mocks/OracleMock.sol";
+import {PythMock} from "../test/mocks/PythMock.sol";
 // Test
 import {Test, Vm} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -44,8 +44,12 @@ contract UniversalPaymasterTest is Test, UserOpHelper {
     // The ID of the token pool
     uint256 tokenId;
 
-    // The Oracle for the token
-    OracleMock public oracle;
+    // The Pyth oracle mock
+    PythMock public pyth;
+    
+    // Pyth feed IDs
+    bytes32 public tokenFeedId;
+    bytes32 public ethFeedId;
 
     // The EOA that will get sponsored by the paymaster
     address EOA;
@@ -76,24 +80,32 @@ contract UniversalPaymasterTest is Test, UserOpHelper {
         );
         entryPoint = EntryPoint(payable(address(ERC4337Utils.ENTRYPOINT_V08)));
 
-        // deploy the paymaster
-        paymaster = new UniversalPaymaster();
+        // deploy the Pyth oracle mock
+        pyth = new PythMock();
+        
+        // Setup feed IDs (use realistic Pyth feed IDs)
+        tokenFeedId = 0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a; // USDC/USD
+        ethFeedId = 0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace;   // ETH/USD
 
-        // create a ERC20 with permit.
+        // deploy the paymaster (inherits PythOracleAdapter)
+        paymaster = new UniversalPaymaster(address(pyth), ethFeedId);
+
+        // create a ERC20 with permit (simulating USDC)
         token = new ERC20Mock(18);
         tokenId = uint256(uint160(address(token)));
 
-        // deploy the oracle
-        oracle = new OracleMock();
-
-        // set the token price in eth
-        oracle.setTokenPriceInEth(address(token), 1e18);
+        // Set Pyth prices:
+        // USDC = $1.00 (price = 100000000, expo = -8)
+        // ETH = $2500.00 (price = 250000000000, expo = -8)
+        // This gives: 1 USDC = 0.0004 ETH = 400000000000000 wei
+        pyth.setPrice(tokenFeedId, 100000000, -8);
+        pyth.setPrice(ethFeedId, 250000000000, -8);
 
         // Deploy the ECDSA account to delegate to
         account = new SimpleAccount7702Mock();
 
         // initialize the pool
-        paymaster.initializePool(address(token), 100, 100, address(oracle));
+        paymaster.initializePool(address(token), 100, 100, tokenFeedId);
 
         // create accounts
         (bundler) = makeAddr("bundler");
@@ -181,7 +193,7 @@ contract UniversalPaymasterTest is Test, UserOpHelper {
         GasConfiguration memory gasConfig = GasConfiguration({
             preVerificationGas: 1_000, // Extra gas to pay the bundler operational costs such as bundle tx cost and entrypoint static code execution.
             verificationGasLimit: 49_990, // The amount of gas to allocate for the verification step
-            paymasterVerificationGasLimit: 63_450, // The amount of gas to allocate for the paymaster validation code (only if paymaster exists)
+            paymasterVerificationGasLimit: 100_000, // The amount of gas to allocate for the paymaster validation code (increased for Pyth oracle calls + token transfer)
             paymasterPostOpGasLimit: 22_100, // The amount of gas to allocate for the paymaster post-operation code (only if paymaster exists)
             callGasLimit: 35_250, // The amount of gas to allocate the main execution call
             maxPriorityFeePerGas: 1 gwei, // Maximum priority fee per gas (similar to EIP-1559 max_priority_fee_per_gas)

@@ -15,10 +15,11 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {BasePaymaster} from "./BasePaymaster.sol";
 import {EntryPointVault} from "./EntryPointVault.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import {PythOracleAdapter} from "../PythOracleAdapter.sol";
 
 /// @title UniversalPaymaster
 /// @notice A trustless paymaster that allows users to pay for gas with any token.
-contract UniversalPaymaster is BasePaymaster, EntryPointVault {
+contract UniversalPaymaster is BasePaymaster, EntryPointVault, PythOracleAdapter {
     using ERC4337Utils for PackedUserOperation;
     using SafeERC20 for IERC20;
     using Math for *;
@@ -26,8 +27,8 @@ contract UniversalPaymaster is BasePaymaster, EntryPointVault {
     struct Pool {
         // the token address that the pool accepts as gas payment
         address token;
-        // the oracle address that provides the token price
-        address oracle;
+        // the Pyth token feed ID that provides the token price
+        bytes32 tokenFeedId;
         // the pool LP fee expressed in basis points (bps)
         // i.e: 100 bps = 1%
         uint24 lpFeeBps;
@@ -42,7 +43,7 @@ contract UniversalPaymaster is BasePaymaster, EntryPointVault {
     }
 
     // emitted when a new pool is initialized
-    event PoolInitialized(address token, address oracle, uint24 lpFeeBps, uint24 rebalancingFeeBps);
+    event PoolInitialized(address token, bytes32 tokenFeedId, uint24 lpFeeBps, uint24 rebalancingFeeBps);
 
     // emitted when a pool is rebalanced
     event PoolRebalanced(address token, uint256 ethAmount, uint256 tokenAmount);
@@ -74,28 +75,31 @@ contract UniversalPaymaster is BasePaymaster, EntryPointVault {
     // registry of initialized `pool` for a given `token`
     mapping(address token => Pool pool) public pools;
 
-    // initializes a new pool for a given `token`, `lpFeeBps`, `rebalancingFeeBps` and `oracle`
+    constructor(address _pyth, bytes32 _ethFeedId) PythOracleAdapter(_pyth, _ethFeedId) {}
+
+    // initializes a new pool for a given `token`, `lpFeeBps`, `rebalancingFeeBps` and `tokenFeedId`
     // NOTE: In the current version, only one pool can be initialized for a given `token`.
     // @TODO: allow multiple pools for a given `token` with different `lpFeeBps` and `rebalancingFeeBps`.
+    // So that different liquidity providers can compete to offer the best pricing.
     function initializePool(
         address token,
         uint24 lpFeeBps,
         uint24 rebalancingFeeBps,
-        address oracle
+        bytes32 tokenFeedId
     ) public {
-        require(pools[token].oracle == address(0), PoolAlreadyInitialized(token));
-        require(oracle != address(0), InvalidOracle(oracle));
+        require(pools[token].tokenFeedId == bytes32(0), PoolAlreadyInitialized(token));
+        require(tokenFeedId != bytes32(0), InvalidTokenFeedId(tokenFeedId));
         require(
             lpFeeBps >= 0 && rebalancingFeeBps >= 0 && lpFeeBps + rebalancingFeeBps <= 10000,
             InvalidPoolFeeBps(lpFeeBps, rebalancingFeeBps)
         );
 
         pools[token].token = token;
-        pools[token].oracle = oracle;
+        pools[token].tokenFeedId = tokenFeedId;
         pools[token].lpFeeBps = lpFeeBps;
         pools[token].rebalancingFeeBps = rebalancingFeeBps;
 
-        emit PoolInitialized(token, oracle, lpFeeBps, rebalancingFeeBps);
+        emit PoolInitialized(token, tokenFeedId, lpFeeBps, rebalancingFeeBps);
     }
 
     function _validatePaymasterUserOp(
@@ -108,13 +112,13 @@ contract UniversalPaymaster is BasePaymaster, EntryPointVault {
 
         // verify the pool is initialized
         Pool memory pool = pools[token];
-        require(pool.oracle != address(0), PoolNotInitialized(token));
+        require(pool.tokenFeedId != bytes32(0), PoolNotInitialized(token));
 
         // verify the pool has enough eth reserves to cover the gas cost
         require(getPoolEthReserves(token) >= maxCost, PoolNotEnoughEthReserves(maxCost));
 
         // query the token price from oracle
-        uint256 tokenPriceInEth = IOracle(pool.oracle).getTokenPriceInEth(token);
+        uint256 tokenPriceInEth = getTokenPriceInEth(pool.tokenFeedId);
 
         // query the fees in basis points for the token pool
         uint24 feesBps = pool.lpFeeBps + pool.rebalancingFeeBps;
@@ -161,18 +165,20 @@ contract UniversalPaymaster is BasePaymaster, EntryPointVault {
         _decreaseAssets(uint256(uint160(token)), actualGasCostInEth);
     }
 
-    /// @dev Calculates the cost of the user operation in ETH.
-    /// @param gasCost The cost of the user operation in ETH.
-    /// @param tokenPrice The price of the token in ETH (Wei per token)
+    /// @dev Calculates the cost of the user operation in tokens.
+    /// @param gasCost The cost of the user operation in ETH (wei).
+    /// @param tokenPrice The price of the token in ETH (wei per 1e18 token units).
     /// @param feesBps The fees in basis points. i.e 100bps = 1%
-    /// @return erc20CostWithFees The cost of the user operation in the token, including fees.
+    /// @return erc20CostWithFees The cost of the user operation in token base units, including fees.
+    /// NOTE: If 1 token costs 0.0004 ETH, tokenPrice = 4e14 wei per 1e18 token units.
+    /// To get tokens needed: tokens = gasCost * 1e18 / tokenPrice
     function _erc20Cost(uint256 gasCost, uint256 tokenPrice, uint256 feesBps)
         internal
         view
         virtual
         returns (uint256 erc20CostWithFees)
     {
-        uint256 baseErc20Cost = gasCost.mulDiv(tokenPrice, _tokenPriceDenominator());
+        uint256 baseErc20Cost = gasCost.mulDiv(_tokenPriceDenominator(), tokenPrice);
         erc20CostWithFees = baseErc20Cost + (baseErc20Cost * feesBps / 10000);
     }
 
@@ -206,15 +212,15 @@ contract UniversalPaymaster is BasePaymaster, EntryPointVault {
     {
         require(tokenAmount > 0, InvalidAmount(tokenAmount));
 
-        // get the oracle and validate the pool exists
+        // get the oracle token feed id and validate the pool exists
         Pool memory pool = pools[token];
-        require(pool.oracle != address(0), PoolNotInitialized(token));
+        require(pool.tokenFeedId != bytes32(0), PoolNotInitialized(token));
 
         // validate the pool has enough tokenAmount to sell
         require(getPoolTokenReserves(token) >= tokenAmount, PoolNotEnoughTokenReserves(tokenAmount));
 
         // query the token price from oracle
-        uint256 tokenPriceInEth = IOracle(pool.oracle).getTokenPriceInEth(token);
+        uint256 tokenPriceInEth = getTokenPriceInEth(pool.tokenFeedId);
 
         // calculate the required eth amount for buying the token amount
         uint256 ethAmount = tokenAmount * tokenPriceInEth / 1e18;
