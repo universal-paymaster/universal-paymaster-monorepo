@@ -60,11 +60,7 @@ export function PoolSection({ actions, data }: PoolSectionProps) {
           </div>
         </div>
         <div className="min-h-0 flex-1 ">
-          <PoolAnalyticsShell
-            actions={actions}
-            data={data}
-            searchQuery={query}
-          />
+          <PoolAnalyticsShell actions={actions} searchQuery={query} />
         </div>
       </section>
 

@@ -11,7 +11,19 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { InfoBadge } from '@/components/ui/info-badge';
-import { defaultPoolData, type PoolRow } from '@/data/pools';
+
+export type PoolRow = {
+  id: string;
+  pool: string;
+  tokens?: [string, string];
+  fee: string;
+  tvl: string;
+  apr: string;
+  sevenDayVolume: string;
+  rebalanceFactor: string;
+  chainId: number;
+  tokenAddress: `0x${string}`;
+};
 
 const parseCurrency = (value: string) =>
   Number(value.replace(/[^0-9.]/g, '')) || 0;
@@ -53,7 +65,8 @@ const TokenGlyph = ({ symbol }: { symbol: string }) => {
   return (
     <span
       className="flex h-8 w-8 items-center justify-center rounded-full"
-      style={tokenBaseStyle}>
+      style={tokenBaseStyle}
+    >
       {icon ? (
         <Image
           src={icon.src}
@@ -111,7 +124,7 @@ const columns: ColumnDef<PoolRow>[] = [
         'Fee',
         <span className="whitespace-nowrap">
           Fee = depositor fee + rebalancing fee
-        </span>
+        </span>,
       ),
     accessorKey: 'fee',
     sortingFn: 'text',
@@ -162,7 +175,7 @@ const columns: ColumnDef<PoolRow>[] = [
     header: () =>
       makeHeader(
         'Balance ƒ',
-        'How balanced is the pool between ETH and the paired token.'
+        'How balanced is the pool between ETH and the paired token.',
       ),
     accessorKey: 'rebalanceFactor',
     enableSorting: false,
@@ -181,7 +194,7 @@ type PoolTableProps = {
 };
 
 export function PoolTable({
-  data = defaultPoolData,
+  data = [],
   caption,
   className,
   selectedPoolId,
@@ -231,15 +244,17 @@ export function PoolTable({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-3 pb-3 text-[0.7rem] font-semibold tracking-[0.18em] text-slate-500 sm:px-4">
+                    className="px-3 pb-3 text-[0.7rem] font-semibold tracking-[0.18em] text-slate-500 sm:px-4"
+                  >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <button
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
-                        className="flex items-center gap-1 text-left">
+                        className="flex items-center gap-1 text-left"
+                      >
                         {flexRender(
                           header.column.columnDef.header,
-                          header.getContext()
+                          header.getContext(),
                         )}
                         {header.column.getIsSorted() ? (
                           <span className="text-[0.6rem] text-slate-400">
@@ -250,7 +265,7 @@ export function PoolTable({
                     ) : (
                       flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )
                     )}
                   </th>
@@ -285,11 +300,13 @@ export function PoolTable({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                style={{ animationDelay: `${index * 70}ms` }}>
+                style={{ animationDelay: `${index * 70}ms` }}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td
                     className="px-3 py-4 text-sm text-slate-600 sm:px-4"
-                    key={cell.id}>
+                    key={cell.id}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
