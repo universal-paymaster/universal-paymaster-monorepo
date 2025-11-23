@@ -1,9 +1,9 @@
 'use client';
 
-import { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import { WagmiProvider } from 'wagmi';
+import { PropsWithChildren } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Config, cookieToInitialState, WagmiProvider } from 'wagmi';
 
 import { ControlOrb } from '@/components/control-orb';
 import { projectId, wagmiAdapter } from '@/config/wagmi-config';
@@ -26,9 +26,6 @@ createAppKit({
   networks: [base, arbitrum],
   defaultNetwork: base,
   enableWalletConnect: false,
-  featuredWalletIds: [
-    'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // metamask
-  ],
   features: {
     swaps: false,
     onramp: false,
@@ -40,24 +37,11 @@ createAppKit({
 
 const queryClient = new QueryClient();
 
-export const Providers = ({
-  children,
-  cookies,
-}: {
-  cookies: string | null;
-  children: ReactNode;
-}) => {
+export const Providers = ({ children }: PropsWithChildren) => {
   const pathname = usePathname();
-  const initialState = cookieToInitialState(
-    wagmiAdapter.wagmiConfig as Config,
-    cookies
-  );
 
   return (
-    <WagmiProvider
-      config={wagmiAdapter.wagmiConfig}
-      initialState={initialState}
-    >
+    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         {children}
         {pathname != '/' && <ControlOrb />}
