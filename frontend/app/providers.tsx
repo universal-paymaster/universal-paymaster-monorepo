@@ -22,8 +22,8 @@ createAppKit({
   metadata: {
     name: 'open-paymaster',
     description: 'Open Paymaster',
-    url: 'openpaymaster.com',
-    icons: [''],
+    url: 'open-paymaster.vercel.app',
+    icons: ['/logo.svg'],
   },
   networks: [base, arbitrum],
   defaultNetwork: arbitrum,
