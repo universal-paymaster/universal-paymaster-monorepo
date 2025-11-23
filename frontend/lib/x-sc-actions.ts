@@ -2,7 +2,13 @@ import type { SmartAccount } from 'viem/account-abstraction';
 import { getAccount, getWalletClient } from '@wagmi/core';
 import { AmbireMultiChainSmartAccount } from '@eil-protocol/accounts';
 import { getClient, getBalance, readContract } from 'wagmi/actions';
-import { erc20Abi, zeroAddress, type Address, type WalletClient } from 'viem';
+import {
+  erc20Abi,
+  parseUnits,
+  zeroAddress,
+  type Address,
+  type WalletClient,
+} from 'viem';
 import {
   CrossChainSdk,
   TransferAction,
@@ -82,34 +88,20 @@ export async function crossChainTransfer(
 ): Promise<void> {
   const { sdk, account } = await createEilSdk();
 
-  const chainId0 = BigInt(base.id);
-  const chainId1 = BigInt(arbitrum.id);
+  const chainId0 = BigInt(arbitrum.id);
+  const chainId1 = BigInt(base.id);
 
-<<<<<<< HEAD
-  // const userOpOverrideInOriginChain = {
-  //   paymaster: paymaster === undefined ? "0xc7F3D98ed15c483C0f666d9F3EA0Dc7abEe77ca2" : paymaster, // prettier-ignore
-  //   paymasterVerificationGasLimit: BigInt(100_000),
-  //   paymasterPostOpGasLimit: BigInt(100_000),
-  //   maxFeePerGas: BigInt(100_000_000),
-  //   maxPriorityFeePerGas: BigInt(100),
-  // };
-  const userOpOverrideInDestinyChain = {
-    maxFeePerGas: BigInt(100_000_000),
-    maxPriorityFeePerGas: BigInt(100),
-  };
-
-=======
->>>>>>> d8c928d20413ff24187439c7d8d3fe17488c9826
   const token = sdk.createToken('USDC', tokensJson.USDC);
-  const { paymasterAndData } = await buildPaymasterData(
-    token.addressOn(BigInt(base.id)),
-  );
+
+  const { paymasterAndData } = await buildPaymasterData(token.addressOn(BigInt(base.id))); // prettier-ignore
+
+  const parsedAmount = parseUnits(amount.toString(), 6);
 
   const userOpOverrideInOriginChain = {
-    paymaster: env.paymasterAddress as Address,
+    // paymaster: env.paymasterAddress as Address,
     paymasterAndData,
-    paymasterVerificationGasLimit: BigInt(100_000),
-    paymasterPostOpGasLimit: BigInt(100_000),
+    // paymasterVerificationGasLimit: BigInt(100_000),
+    // paymasterPostOpGasLimit: BigInt(100_000),
     maxFeePerGas: BigInt(100_000_000),
     maxPriorityFeePerGas: BigInt(100),
   };
@@ -125,7 +117,7 @@ export async function crossChainTransfer(
     .addVoucherRequest({
       ref: 'voucher_request_1',
       destinationChainId: chainId1,
-      tokens: [{ token, amount }],
+      tokens: [{ token, amount: parsedAmount }],
     })
     .overrideUserOp(userOpOverrideInOriginChain)
     .endBatch()
@@ -136,7 +128,7 @@ export async function crossChainTransfer(
       new TransferAction({
         token,
         recipient,
-        amount,
+        amount: parsedAmount,
       }),
     )
     .overrideUserOp(userOpOverrideInDestinyChain)
