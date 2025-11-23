@@ -106,7 +106,7 @@ export async function crossChainTransfer(
     maxPriorityFeePerGas: BigInt(100),
   };
   const userOpOverrideInDestinyChain = {
-    maxFeePerGas: BigInt(100_000_000),
+    maxFeePerGas: BigInt(100_000),
     maxPriorityFeePerGas: BigInt(100),
   };
 
