@@ -2,14 +2,15 @@
 
 import clsx from 'clsx';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 import { Address } from 'viem';
 import { LiquidGlassButton } from '@/components/ui/liquid-glass-button';
 import { crossChainTransfer } from '@/lib/x-sc-actions';
 import { Dropdown, type DropdownOption } from '@/components/ui/dropdown';
 import { arbitrum, base, mainnet, optimism } from 'viem/chains';
-import { ExecCallback } from '@eil-protocol/sdk';
+import { CallbackType, ExecCallback } from '@eil-protocol/sdk';
 import { env } from '@/config/env';
 
 type TransferPanelProps = {
@@ -107,15 +108,32 @@ const chainOptions: ChainOption[] = [
   },
 ];
 
+const defaultAsset = assetOptions[0].value;
+const defaultOriginChain = chainOptions[0].value;
+const defaultDestinationChain = chainOptions[1]?.value ?? chainOptions[0].value;
+
+const formatHash = (hash: string | undefined) => {
+  if (!hash) return 'Hash unavailable';
+  return hash.length <= 14 ? hash : `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+};
+
+const formatAddress = (address: string | undefined) => {
+  if (!address) return '';
+  return address.length <= 12
+    ? address
+    : `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
 function TransferPanel({ className, onClose }: TransferPanelProps) {
-  const [asset, setAsset] = useState(assetOptions[0].value);
-  const [originChain, setOriginChain] = useState(chainOptions[0].value);
-  const [destinationChain, setDestinationChain] = useState(chainOptions[1]?.value ?? chainOptions[0].value); // prettier-ignore
+  const [asset, setAsset] = useState(defaultAsset);
+  const [originChain, setOriginChain] = useState(defaultOriginChain);
+  const [destinationChain, setDestinationChain] = useState(defaultDestinationChain); // prettier-ignore
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const form = event.currentTarget;
 
     const formData = new FormData(event.currentTarget);
     const assetInput = formData.get('asset')?.toString() ?? asset;
@@ -150,6 +168,78 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
 
     setIsSubmitting(true);
 
+    const toastId = toast.loading('Submitting transfer...');
+    let sawRevert = false;
+    let lastTxHash: string | undefined;
+    let lastUserOpHash: string | undefined;
+
+    const showHashToast = (
+      variant: 'success' | 'error',
+      message: string,
+      hash?: string,
+    ) => {
+      const color =
+        variant === 'success'
+          ? 'border-emerald-200/80 bg-white'
+          : 'border-rose-200/80 bg-white';
+
+      const HashToast = () => {
+        const [copied, setCopied] = useState(false);
+
+        useEffect(() => {
+          if (!copied) return;
+          const timer = setTimeout(() => setCopied(false), 1000);
+          return () => clearTimeout(timer);
+        }, [copied]);
+
+        const handleCopy = async () => {
+          if (!hash) return;
+          try {
+            await navigator.clipboard.writeText(hash);
+            setCopied(true);
+          } catch (copyErr) {
+            console.error('Failed to copy hash', copyErr);
+          }
+        };
+
+        return (
+          <div
+            className={clsx(
+              'flex w-full max-w-lg items-center gap-3 rounded-2xl border px-4 py-3 shadow-lg',
+              color,
+            )}
+          >
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-800">{message}</p>
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-600">
+                <span className="font-mono tracking-tight">
+                  {formatHash(hash)}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={!hash}
+              className={clsx(
+                'rounded-full border px-3 py-1 text-xs font-semibold transition',
+                hash
+                  ? 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-100'
+                  : 'cursor-not-allowed border-slate-200 text-slate-400 opacity-60',
+              )}
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+        );
+      };
+
+      toast.custom(
+        () => <HashToast />,
+        { id: toastId, duration: 8000, position: 'top-center' },
+      );
+    };
+
     try {
       const params = {
         chainId0: selectedOriginChain.chainId,
@@ -161,8 +251,34 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
         recepient: addressInput,
       };
 
-      const callbackFn: ExecCallback = ({ revertReason, type, index }) => {
-        console.log('Callback data:', { revertReason, type, index });
+      const callbackFn: ExecCallback = ({
+        revertReason,
+        type,
+        index,
+        txHash,
+        userOpHash,
+      }) => {
+        console.log('Callback data:', {
+          revertReason,
+          type,
+          index,
+          txHash,
+          userOpHash,
+        });
+        lastTxHash = txHash ?? lastTxHash;
+        lastUserOpHash = userOpHash ?? lastUserOpHash;
+
+        if (revertReason || type === CallbackType.Failed) {
+          sawRevert = true;
+          const stepLabel =
+            typeof index === 'number' ? ` (step ${index + 1})` : '';
+          const hash = lastTxHash ?? lastUserOpHash;
+          showHashToast(
+            'error',
+            `Transfer reverted${stepLabel}: ${String(revertReason)}`,
+            hash,
+          );
+        }
       };
 
       await crossChainTransfer(
@@ -173,10 +289,28 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
 
       // Replace with actual transfer action when backend or wallet wiring is ready.
       console.log('Submitting transfer:', params);
+      if (!sawRevert) {
+        const hash = lastTxHash ?? lastUserOpHash;
+        showHashToast(
+          'success',
+          `Transfer sent: ${amountInput} ${selectedAsset.ticker} to ${formatAddress(addressInput)}`,
+          hash,
+        );
+      }
     } catch (err) {
       console.error(err);
+      if (!sawRevert) {
+        const message =
+          err instanceof Error ? err.message : 'Something went wrong.';
+        const hash = lastTxHash ?? lastUserOpHash;
+        showHashToast('error', `Transfer failed: ${message}`, hash);
+      }
     } finally {
       setIsSubmitting(false);
+      form.reset();
+      setAsset(defaultAsset);
+      setOriginChain(defaultOriginChain);
+      setDestinationChain(defaultDestinationChain);
     }
   };
 
@@ -193,7 +327,7 @@ function TransferPanel({ className, onClose }: TransferPanelProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-slate-800">
-                  1. Where you are and what you want
+                  1. Where you are
                 </p>
                 <p className="text-xs text-slate-500">
                   Select origin chain & asset to send

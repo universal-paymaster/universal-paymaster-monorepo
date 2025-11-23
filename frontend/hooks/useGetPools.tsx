@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Address } from 'viem';
 
@@ -11,6 +11,7 @@ import {
 } from '@/lib/sc-actions';
 import { env } from '@/config/env';
 import { universalPaymasterAbi } from '@/lib/abi/universalPaymaster';
+import { mapPoolLogToRow } from '@/lib/utils';
 
 const QUERY_KEY = ['pools', 'PoolInitialized'];
 
@@ -77,5 +78,10 @@ export default function useGetPools() {
     };
   }, [queryClient]);
 
-  return query;
+  const poolRows = useMemo(
+    () => query.data?.map(mapPoolLogToRow) ?? [],
+    [query.data],
+  );
+
+  return { ...query, poolRows, poolsRow: poolRows };
 }

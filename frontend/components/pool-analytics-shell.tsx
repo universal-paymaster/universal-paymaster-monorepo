@@ -5,7 +5,6 @@ import { PoolRow, PoolTable } from '@/components/pool-table';
 import { LiquidGlassButton } from '@/components/ui/liquid-glass-button';
 import SlideOver from '@/components/ui/slide-over';
 import useGetPools from '@/hooks/useGetPools';
-import { mapPoolLogToRow } from '@/lib/utils';
 
 type PoolAction = {
   label: string;
@@ -29,32 +28,25 @@ export function PoolAnalyticsShell({
   const [, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(searchQuery);
 
-  const { data: logs, isLoading } = useGetPools();
-
-  console.log(logs);
-  console.log(isLoading);
-
-  const poolRows = useMemo(() => {
-    if (!logs) return [];
-    return logs.map(mapPoolLogToRow);
-  }, [logs]);
+  const { data: pools, poolsRow, isLoading } = useGetPools();
+  const hasPools = (pools?.length ?? 0) > 0;
   const filteredData = useMemo(() => {
-    if (!poolRows.length) return [];
+    if (isLoading || !hasPools || !poolsRow.length) return [];
 
     if (!deferredQuery.trim()) {
-      return poolRows;
+      return poolsRow;
     }
 
     const normalized = deferredQuery.trim().toLowerCase();
 
-    return poolRows.filter((pool) => {
+    return poolsRow.filter((pool) => {
       const matchPool = pool.pool.toLowerCase().includes(normalized);
       const matchTokens = pool.tokens?.some((token) =>
         token.toLowerCase().includes(normalized),
       );
       return matchPool || matchTokens;
     });
-  }, [deferredQuery, poolRows]);
+  }, [deferredQuery, hasPools, isLoading, poolsRow]);
 
   const selectedPool = useMemo(
     () => filteredData.find((pool) => pool.id === selectedPoolId) ?? null,
