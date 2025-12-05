@@ -22,8 +22,8 @@ createAppKit({
   metadata: {
     name: 'open-paymaster',
     description: 'Open Paymaster',
-    url: 'openpaymaster.com',
-    icons: [''],
+    url: 'open-paymaster.vercel.app',
+    icons: ['/logo.svg'],
   },
   networks: [base, arbitrum],
   defaultNetwork: arbitrum,
@@ -52,7 +52,7 @@ export const Providers = ({ children }: PropsWithChildren) => {
       <QueryClientProvider client={queryClient}>
         <PoolsProvider>
           {children}
-          {pathname != '/' && <ControlOrb />}
+          {pathname != '/black-hole' && <ControlOrb />}
           <Toaster
             position="top-center"
             toastOptions={{
