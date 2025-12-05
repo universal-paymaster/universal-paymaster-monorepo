@@ -1,9 +1,9 @@
 import hre from 'hardhat';
 import { oracleMockAbi } from 'paymaster-sdk';
-import { loadForgeArtifact } from '../src/helpers';
+import { loadForgeArtifact } from '../../src/helpers';
 
 /**
- * Deploy the OpenPaymaster contract to the selected chain
+ * Deploy the OracleMock contract to the selected chain
  */
 async function main() {
 	const [deployer] = await hre.viem.getWalletClients();
@@ -29,8 +29,6 @@ async function main() {
 
 	console.log('\n✅ Deployment successful!');
 	console.log(`Oracle address: ${receipt.contractAddress}`);
-	console.log(`Block number: ${receipt.blockNumber}`);
-	console.log(`Gas used: ${receipt.gasUsed}`);
 }
 
 main()

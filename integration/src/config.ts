@@ -1,7 +1,7 @@
 import { Address, Hex } from "viem";
 import { config as dotenvConfig } from "dotenv";
 import { resolve } from "path";
-import { Chain, sepolia, mainnet, arbitrum } from "viem/chains";
+import { Chain, sepolia, mainnet } from "viem/chains";
 
 // Load environment variables from .env file
 dotenvConfig({ path: resolve(__dirname, "../.env") });
@@ -58,35 +58,6 @@ export const chainConfig: Record<string, ChainConfig> = {
         //
         USDC: process.env.USDC_SEPOLIA as unknown as Address,
         // 
-        USER_PRIVATE_KEY: process.env.USER_PRIVATE_KEY as unknown as Hex,
-        USER_ADDRESS: process.env.USER_ADDRESS as unknown as Address,
-        //
-        DEPLOYER_PRIVATE_KEY: process.env.DEPLOYER_PRIVATE_KEY as unknown as Hex,
-        DEPLOYER_ADDRESS: process.env.DEPLOYER_ADDRESS as unknown as Address,
-        //
-        DEPOSITOR_PRIVATE_KEY: process.env.DEPOSITOR_PRIVATE_KEY as unknown as Hex,
-        DEPOSITOR_ADDRESS: process.env.DEPOSITOR_ADDRESS as unknown as Address,
-        //
-        REBALANCER_PRIVATE_KEY: process.env.REBALANCER_PRIVATE_KEY as unknown as Hex,
-        REBALANCER_ADDRESS: process.env.REBALANCER_ADDRESS as unknown as Address,
-        //
-        RECIPIENT_ADDRESS: process.env.RECIPIENT_ADDRESS as unknown as Address,
-    },
-    arbitrum: {
-        id: 42161,
-        name: 'arbitrum',
-        //
-        RPC_URL: process.env.RPC_URL_ARBITRUM as string,
-        BUNDLER_URL: process.env.BUNDLER_URL_ARBITRUM as string,
-        //
-        ENTRY_POINT: process.env.ENTRY_POINT as unknown as Address,
-        //
-        PAYMASTER: process.env.PAYMASTER_ARBITRUM as unknown as Address,
-        //
-        ORACLE: process.env.ORACLE_ARBITRUM as unknown as Address,
-        //
-        USDC: process.env.USDC_ARBITRUM as unknown as Address,
-        //
         USER_PRIVATE_KEY: process.env.USER_PRIVATE_KEY as unknown as Hex,
         USER_ADDRESS: process.env.USER_ADDRESS as unknown as Address,
         //
@@ -194,8 +165,6 @@ function getChain(name: string): Chain {
             return sepolia;
         case 'mainnet':
             return mainnet;
-        case 'arbitrum':
-            return arbitrum;
     }
     throw new Error(`Chain ${name} not found`);
 }

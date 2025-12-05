@@ -4,7 +4,7 @@ import type {
 	GetPaymasterDataParameters,
 	GetPaymasterStubDataParameters,
 } from 'viem/account-abstraction';
-import { PAYMASTER_ADDRESS, } from './constants.js';
+import { PAYMASTER_ADDRESS, ADDRESS_ZERO } from './constants.js';
 
 // Define the ABI parameters for encoding
 const paymasterDataParams = parseAbiParameters('address token');
@@ -17,6 +17,8 @@ export interface PaymasterContext {
 export const paymasterClient: BundlerClientConfig['paymaster'] = {
 	async getPaymasterStubData(params: GetPaymasterStubDataParameters) {
 		const context = params.context as PaymasterContext | undefined;
+
+		if (PAYMASTER_ADDRESS === ADDRESS_ZERO) throw new Error('Paymaster address is not set');
 
 		if (!context) throw new Error('No context passed to paymaster');
 		if (!context.token) throw new Error('No token passed to paymaster');

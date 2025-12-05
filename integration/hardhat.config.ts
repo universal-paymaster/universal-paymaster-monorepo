@@ -1,5 +1,4 @@
 import type { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox-viem";
 import "@nomicfoundation/hardhat-viem";
 import { config as dotenvConfig } from "dotenv";
 import { resolve } from "path";
@@ -52,16 +51,6 @@ const config: HardhatUserConfig = {
       url: process.env.RPC_URL_MAINNET || "",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId: 1,
-    },
-    base: {
-      url: process.env.RPC_URL_BASE || "",
-      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
-      chainId: 8453,
-    },
-    arbitrum: {
-      url: process.env.RPC_URL_ARBITRUM || "",
-      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
-      chainId: 42161,
     },
   },
 };

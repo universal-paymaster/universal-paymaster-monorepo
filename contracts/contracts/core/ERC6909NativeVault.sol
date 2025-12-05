@@ -2,7 +2,9 @@
 
 pragma solidity ^0.8.26;
 
-import {ERC6909TokenSupply} from "@openzeppelin/contracts/token/ERC6909/extensions/ERC6909TokenSupply.sol";
+import {
+    ERC6909TokenSupply
+} from "@openzeppelin/contracts/token/ERC6909/extensions/ERC6909TokenSupply.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @dev Built on top of ERC-6909, this vault helps managing liquidity positions and shares accounting for native eth.
@@ -12,7 +14,9 @@ abstract contract ERC6909NativeVault is ERC6909TokenSupply {
     /* @dev Total amount of ETH for a particular ID token. */
     mapping(uint256 id => uint256) private _assets;
 
-    event Deposit(address indexed caller, address indexed receiver, uint256 assets, uint256 shares, uint256 id);
+    event Deposit(
+        address indexed caller, address indexed receiver, uint256 assets, uint256 shares, uint256 id
+    );
 
     event Withdraw(
         address indexed caller,
@@ -23,13 +27,21 @@ abstract contract ERC6909NativeVault is ERC6909TokenSupply {
         uint256 id
     );
 
-    error ERC6909NativeVaultExceededMaxDeposit(address receiver, uint256 assets, uint256 max, uint256 id);
+    error ERC6909NativeVaultExceededMaxDeposit(
+        address receiver, uint256 assets, uint256 max, uint256 id
+    );
 
-    error ERC6909NativeVaultExceededMaxMint(address receiver, uint256 shares, uint256 max, uint256 id);
+    error ERC6909NativeVaultExceededMaxMint(
+        address receiver, uint256 shares, uint256 max, uint256 id
+    );
 
-    error ERC6909NativeVaultExceededMaxWithdraw(address owner, uint256 assets, uint256 max, uint256 id);
+    error ERC6909NativeVaultExceededMaxWithdraw(
+        address owner, uint256 assets, uint256 max, uint256 id
+    );
 
-    error ERC6909NativeVaultExceededMaxRedeem(address owner, uint256 shares, uint256 max, uint256 id);
+    error ERC6909NativeVaultExceededMaxRedeem(
+        address owner, uint256 shares, uint256 max, uint256 id
+    );
 
     error ERC6909NativeVaultInvalidNativeAmount(uint256 assets, uint256 value);
 
@@ -91,7 +103,12 @@ abstract contract ERC6909NativeVault is ERC6909TokenSupply {
     }
 
     /* deposits ETH into the vault and mints ERC-6909 shares */
-    function deposit(uint256 assets, address receiver, uint256 id) public payable virtual returns (uint256) {
+    function deposit(uint256 assets, address receiver, uint256 id)
+        public
+        payable
+        virtual
+        returns (uint256)
+    {
         if (assets != msg.value) {
             revert ERC6909NativeVaultInvalidNativeAmount(assets, msg.value);
         }
@@ -108,7 +125,11 @@ abstract contract ERC6909NativeVault is ERC6909TokenSupply {
     }
 
     /* withdraws ETH from the vault and burns ERC-6909 shares */
-    function withdraw(uint256 assets, address receiver, address owner, uint256 id) public virtual returns (uint256) {
+    function withdraw(uint256 assets, address receiver, address owner, uint256 id)
+        public
+        virtual
+        returns (uint256)
+    {
         uint256 maxAssets = maxWithdraw(owner, id);
         if (assets > maxAssets) {
             revert ERC6909NativeVaultExceededMaxWithdraw(owner, assets, maxAssets, id);
@@ -153,7 +174,10 @@ abstract contract ERC6909NativeVault is ERC6909TokenSupply {
      *
      * NOTE: ETH is already received via `msg.value` in `deposit`, so we only need to track it.
      */
-    function _deposit(address caller, address receiver, uint256 assets, uint256 shares, uint256 id) internal virtual {
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares, uint256 id)
+        internal
+        virtual
+    {
         _increaseAssets(id, assets);
         _mint(receiver, id, shares);
 
@@ -165,10 +189,14 @@ abstract contract ERC6909NativeVault is ERC6909TokenSupply {
      *
      * IMPORTANT: this function should be overridden and extended to send ETH to the receiver.
      */
-    function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares, uint256 id)
-        internal
-        virtual
-    {
+    function _withdraw(
+        address caller,
+        address receiver,
+        address owner,
+        uint256 assets,
+        uint256 shares,
+        uint256 id
+    ) internal virtual {
         if (caller != owner) {
             _spendAllowance(owner, caller, id, shares);
         }

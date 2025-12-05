@@ -4,13 +4,13 @@ pragma solidity ^0.8.26;
 import {IOracle} from "../../contracts/interfaces/IOracle.sol";
 
 contract OracleMock is IOracle {
-    mapping(bytes32 => uint256) private _tokenPriceInEth;
+    mapping(address => uint256) private _tokenPriceInEth;
 
-    function setTokenPriceInEth(bytes32 tokenFeedId, uint256 tokenPriceInEth) external {
-        _tokenPriceInEth[tokenFeedId] = tokenPriceInEth;
+    function setTokenPriceInEth(address token, uint256 tokenPriceInEth) external {
+        _tokenPriceInEth[token] = tokenPriceInEth;
     }
 
-    function getTokenPriceInEth(bytes32 tokenFeedId) external view returns (uint256 price) {
-        return _tokenPriceInEth[tokenFeedId];
+    function getTokenPriceInEth(address token) external view returns (uint256 price) {
+        return _tokenPriceInEth[token];
     }
 }

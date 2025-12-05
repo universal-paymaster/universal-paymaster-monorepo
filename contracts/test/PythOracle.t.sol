@@ -98,7 +98,9 @@ contract PythOracleTest is Test {
     function test_RevertWhen_InvalidTokenFeedId() public {
         bytes32 invalidFeedId = bytes32(0);
 
-        vm.expectRevert(abi.encodeWithSelector(PythOracleAdapter.InvalidTokenFeedId.selector, invalidFeedId));
+        vm.expectRevert(
+            abi.encodeWithSelector(PythOracleAdapter.InvalidTokenFeedId.selector, invalidFeedId)
+        );
         oracle.getTokenPriceInEth(invalidFeedId);
     }
 
@@ -106,7 +108,9 @@ contract PythOracleTest is Test {
         pyth.setPrice(tokenFeedId, 0, -8);
         pyth.setPrice(ethFeedId, 250000000000, -8);
 
-        vm.expectRevert(abi.encodeWithSelector(PythOracleAdapter.InvalidPrice.selector, tokenFeedId));
+        vm.expectRevert(
+            abi.encodeWithSelector(PythOracleAdapter.InvalidPrice.selector, tokenFeedId)
+        );
         oracle.getTokenPriceInEth(tokenFeedId);
     }
 
@@ -114,7 +118,9 @@ contract PythOracleTest is Test {
         pyth.setPrice(tokenFeedId, 100000000, -8);
         pyth.setPrice(ethFeedId, 0, -8);
 
-        vm.expectRevert(abi.encodeWithSelector(PythOracleAdapter.InvalidPrice.selector, tokenFeedId));
+        vm.expectRevert(
+            abi.encodeWithSelector(PythOracleAdapter.InvalidPrice.selector, tokenFeedId)
+        );
         oracle.getTokenPriceInEth(tokenFeedId);
     }
 

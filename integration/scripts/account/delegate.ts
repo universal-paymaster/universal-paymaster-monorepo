@@ -1,4 +1,4 @@
-import { getChainConfig } from '../src/config';
+import { getChainConfig } from '../../src/config';
 import { toSimple7702SmartAccount } from 'viem/account-abstraction';
 import { privateKeyToAccount } from 'viem/accounts';
 import { publicActions, walletActions, http, createWalletClient } from 'viem';

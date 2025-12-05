@@ -1,5 +1,5 @@
 import hre from 'hardhat';
-import { pythMockAbi } from 'paymaster-sdk';
+import { openPaymasterAbi } from 'paymaster-sdk';
 import { loadForgeArtifact } from '../../src/helpers';
 
 /**
@@ -8,11 +8,10 @@ import { loadForgeArtifact } from '../../src/helpers';
 async function main() {
 	const [deployer] = await hre.viem.getWalletClients();
 	const publicClient = await hre.viem.getPublicClient();
-
-	const { bytecode } = loadForgeArtifact('PythMock');
+	const { bytecode } = loadForgeArtifact('OpenPaymaster');
 
 	const hash = await deployer.deployContract({
-		abi: pythMockAbi,
+		abi: openPaymasterAbi,
 		bytecode,
 		args: [],
 	});
@@ -28,9 +27,7 @@ async function main() {
 	}
 
 	console.log('\n✅ Deployment successful!');
-	console.log(`Oracle address: ${receipt.contractAddress}`);
-	console.log(`Block number: ${receipt.blockNumber}`);
-	console.log(`Gas used: ${receipt.gasUsed}`);
+	console.log(`Paymaster address: ${receipt.contractAddress}`);
 }
 
 main()

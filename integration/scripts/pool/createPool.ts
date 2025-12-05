@@ -1,10 +1,10 @@
 import hre from 'hardhat';
-import { OpenPaymasterAbi } from 'paymaster-sdk';
+import { openPaymasterAbi } from 'paymaster-sdk';
 import { getContract } from 'viem';
-import { getChainConfig } from '../src/config';
+import { getChainConfig } from '../../src/config';
 
 /**
- * Deploy the OpenPaymaster contract to the selected chain
+ * Create a new pool for the selected token
  */
 async function main() {
 	const [deployer] = await hre.viem.getWalletClients();
@@ -13,12 +13,12 @@ async function main() {
 
 	const paymasterContract = getContract({
 		address: chainConfig.PAYMASTER,
-		abi: OpenPaymasterAbi,
+		abi: openPaymasterAbi,
 		client: { public: publicClient, wallet: deployer },
 	});
 
 	const hash = await paymasterContract.write.initializePool([
-		chainConfig.FTC,
+		chainConfig.USDC,
 		100,
 		100,
 		chainConfig.ORACLE,

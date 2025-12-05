@@ -1,7 +1,7 @@
 import hre from 'hardhat';
-import { OpenPaymasterAbi, entryPointAbi } from 'paymaster-sdk';
-import { getContract, formatEther, formatUnits } from 'viem';
-import { getChainConfig } from '../src/config';
+import { openPaymasterAbi, entryPointAbi } from 'paymaster-sdk';
+import { getContract } from 'viem';
+import { getChainConfig } from '../../src/config';
 
 /**
  * Deploy the OpenPaymaster contract to the selected chain
@@ -12,7 +12,7 @@ async function main() {
 
 	const paymasterContract = getContract({
 		address: chainConfig.PAYMASTER,
-		abi: OpenPaymasterAbi,
+		abi: openPaymasterAbi,
 		client: { public: publicClient },
 	});
 
@@ -23,16 +23,16 @@ async function main() {
 	});
 
 	const paymasterDeposit = await entryPointContract.read.balanceOf([chainConfig.PAYMASTER]);
-	console.log('paymaster deposit', formatEther(paymasterDeposit));
-
 	const ethReserves = await paymasterContract.read.getPoolEthReserves([chainConfig.USDC]);
-	console.log('pool ethReserves', formatEther(ethReserves));
-
 	const tokenReserves = await paymasterContract.read.getPoolTokenReserves([chainConfig.USDC]);
-	console.log('pool tokenReserves', formatUnits(tokenReserves, 6));
-
 	const pool = await paymasterContract.read.pools([chainConfig.USDC]);
-	console.log('pool', pool);
+
+	console.log({
+		paymasterDeposit,
+		ethReserves,
+		tokenReserves,
+		pool,
+	})
 }
 
 main()

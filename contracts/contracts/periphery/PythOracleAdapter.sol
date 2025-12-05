@@ -7,7 +7,7 @@ import {IOracle} from "../interfaces/IOracle.sol";
 
 /// @title PythOracle
 /// @dev Oracle adapter that converts Pyth USD-denominated feeds to TOKEN/ETH prices.
-contract PythOracleAdapter is IOracle {
+contract PythOracleAdapter {
     IPyth public immutable pyth;
 
     /// @dev Pyth price feed ID for ETH/USD

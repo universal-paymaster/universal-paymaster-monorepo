@@ -15,7 +15,7 @@ import {UserOpHelper} from "../test/utils/UserOpHelper.sol";
 // Mocks
 import {SimpleAccount7702Mock} from "../test/mocks/SimpleAccount7702Mock.sol";
 import {ERC20Mock} from "../test/mocks/ERC20Mock.sol";
-import {PythMock} from "../test/mocks/PythMock.sol";
+import {OracleMock} from "../test/mocks/OracleMock.sol";
 // Test
 import {Test, Vm} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -44,12 +44,8 @@ contract OpenPaymasterTest is Test, UserOpHelper {
     // The ID of the token pool
     uint256 tokenId;
 
-    // The Pyth oracle mock
-    PythMock public pyth;
-
-    // Pyth feed IDs
-    bytes32 public tokenFeedId;
-    bytes32 public ethFeedId;
+    // The Oracle Mock
+    OracleMock public oracleMock;
 
     // The EOA that will get sponsored by the paymaster
     address EOA;
@@ -80,32 +76,27 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         );
         entryPoint = EntryPoint(payable(address(ERC4337Utils.ENTRYPOINT_V08)));
 
-        // deploy the Pyth oracle mock
-        pyth = new PythMock();
+        // deploy the oracle mock
+        oracleMock = new OracleMock();
 
-        // Setup feed IDs (use realistic Pyth feed IDs)
-        tokenFeedId = 0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a; // USDC/USD
-        ethFeedId = 0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace; // ETH/USD
-
-        // deploy the paymaster (inherits PythOracleAdapter)
-        paymaster = new OpenPaymaster(address(pyth), ethFeedId);
+        // deploy the paymaster
+        paymaster = new OpenPaymaster();
 
         // create a ERC20 with permit (simulating USDC)
         token = new ERC20Mock(18);
         tokenId = uint256(uint160(address(token)));
 
-        // Set Pyth prices:
-        // USDC = $1.00 (price = 100000000, expo = -8)
-        // ETH = $2500.00 (price = 250000000000, expo = -8)
+        // Set token price:
+        // USDC = $1.00 
+        // ETH = $2500.00 
         // This gives: 1 USDC = 0.0004 ETH = 400000000000000 wei
-        pyth.setPrice(tokenFeedId, 100000000, -8);
-        pyth.setPrice(ethFeedId, 250000000000, -8);
+        oracleMock.setTokenPriceInEth(address(token), 400000000000000);
 
         // Deploy the ECDSA account to delegate to
         account = new SimpleAccount7702Mock();
 
         // initialize the pool
-        paymaster.initializePool(address(token), 100, 100, tokenFeedId);
+        paymaster.initializePool(address(token), 100, 100, address(oracleMock));
 
         // create accounts
         (bundler) = makeAddr("bundler");
@@ -127,28 +118,19 @@ contract OpenPaymasterTest is Test, UserOpHelper {
     // EIP-7702 tests require Foundry nightly with Vm.SignedDelegation support
     function test_eip7702_delegation() public {
         assertEq(address(EOA).code.length, 0);
-        Vm.SignedDelegation memory signedDelegation = vm.signDelegation(
-            address(account),
-            EOAPrivateKey
-        );
+        Vm.SignedDelegation memory signedDelegation =
+            vm.signDelegation(address(account), EOAPrivateKey);
         vm.attachDelegation(signedDelegation);
-        bytes memory expectedCode = abi.encodePacked(
-            hex"ef0100",
-            address(account)
-        );
+        bytes memory expectedCode = abi.encodePacked(hex"ef0100", address(account));
         assertEq(address(EOA).code, expectedCode);
     }
 
     function test_ERC1271_signature() public {
-        Vm.SignedDelegation memory signedDelegation = vm.signDelegation(
-            address(account),
-            EOAPrivateKey
-        );
+        Vm.SignedDelegation memory signedDelegation =
+            vm.signDelegation(address(account), EOAPrivateKey);
         vm.attachDelegation(signedDelegation);
         string memory text = "Hello, world!";
-        bytes32 hash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n13", text)
-        );
+        bytes32 hash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n13", text));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(EOAPrivateKey, hash);
         bytes memory signature = abi.encodePacked(r, s, v);
         bytes4 result = IERC1271(EOA).isValidSignature(hash, signature);
@@ -164,9 +146,7 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         uint256 lpBalanceBefore = lp.balance;
         uint256 rebalancerBalanceBefore = rebalancer.balance;
         uint256 bundlerBalanceBefore = bundler.balance;
-        uint256 entrypointBalanceBefore = entryPoint.balanceOf(
-            address(paymaster)
-        );
+        uint256 entrypointBalanceBefore = entryPoint.balanceOf(address(paymaster));
         assertEq(userBalanceBefore, 0);
         assertEq(entrypointBalanceBefore, 0);
 
@@ -197,10 +177,8 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         assertEq(token.allowance(EOA, address(paymaster)), type(uint256).max);
 
         // 2. Delegate to the account
-        Vm.SignedDelegation memory signedDelegation = vm.signDelegation(
-            address(account),
-            EOAPrivateKey
-        );
+        Vm.SignedDelegation memory signedDelegation =
+            vm.signDelegation(address(account), EOAPrivateKey);
         vm.attachDelegation(signedDelegation);
 
         GasConfiguration memory gasConfig = GasConfiguration({
@@ -227,10 +205,7 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         );
         console.log("paymaster data: ");
         console.logBytes(paymasterData);
-        console.log(
-            "paymaster data length (bytes):",
-            paymasterData.length / 2 - 1
-        ); // -1 for '0x'
+        console.log("paymaster data length (bytes):", paymasterData.length / 2 - 1); // -1 for '0x'
 
         // 4. Build calldata, where account sends 1 token to receiver
         bytes memory callData = abi.encodeWithSelector(
@@ -270,19 +245,13 @@ contract OpenPaymasterTest is Test, UserOpHelper {
 
         uint256 lpAssetsAfterSponsoring = paymaster.maxWithdraw(lp, tokenId);
         uint256 totalAssetsAfterSponsoring = paymaster.totalAssets(tokenId);
-        uint256 entryPointDepositAfterSponsoring = entryPoint.balanceOf(
-            address(paymaster)
-        );
+        uint256 entryPointDepositAfterSponsoring = entryPoint.balanceOf(address(paymaster));
 
-        int256 entryPointVslpDelta = int256(entryPointDepositAfterSponsoring) -
-            int256(lpAssetsAfterSponsoring);
+        int256 entryPointVslpDelta =
+            int256(entryPointDepositAfterSponsoring) - int256(lpAssetsAfterSponsoring);
         console.log("entry point vs lp delta: ", entryPointVslpDelta);
 
-        assertEq(
-            lpAssetsAfterSponsoring,
-            totalAssetsAfterSponsoring,
-            "lp assets != total assets"
-        );
+        assertEq(lpAssetsAfterSponsoring, totalAssetsAfterSponsoring, "lp assets != total assets");
         assertApproxEqAbs(
             entryPointDepositAfterSponsoring,
             lpAssetsAfterSponsoring,
@@ -293,11 +262,7 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         // 8. Rebalancer rebalances the pool buying all the tokens available
         vm.startPrank(rebalancer);
         uint256 tokenReserves = paymaster.getPoolTokenReserves(address(token));
-        paymaster.rebalance{value: 1e18}(
-            address(token),
-            tokenReserves,
-            rebalancer
-        );
+        paymaster.rebalance{value: 1e18}(address(token), tokenReserves, rebalancer);
         vm.stopPrank();
 
         // pool should not have tokens any longer
@@ -312,11 +277,7 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         console.log("total assets: ", totalAssets);
 
         // assertGe(entrypointDeposit, lpAssets, "entrypoint deposit should be greater than or equal to lp assets");
-        assertGe(
-            totalAssets,
-            lpAssets,
-            "total assets should be greater than or equal to lp assets"
-        );
+        assertGe(totalAssets, lpAssets, "total assets should be greater than or equal to lp assets");
         assertEq(
             lpAssets,
             totalAssets - 1,
@@ -324,9 +285,7 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         );
 
         // Withdraw only what's available in the entry point to avoid revert
-        uint256 withdrawAmount = lpAssets > entrypointDeposit
-            ? entrypointDeposit
-            : lpAssets;
+        uint256 withdrawAmount = lpAssets > entrypointDeposit ? entrypointDeposit : lpAssets;
 
         vm.startPrank(lp);
         paymaster.withdraw(withdrawAmount, lp, lp, tokenId);
@@ -336,18 +295,13 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         uint256 lpBalanceAfter = lp.balance;
         uint256 rebalancerBalanceAfter = rebalancer.balance;
         uint256 bundlerBalanceAfter = bundler.balance;
-        uint256 entrypointBalanceAfter = entryPoint.balanceOf(
-            address(paymaster)
-        );
+        uint256 entrypointBalanceAfter = entryPoint.balanceOf(address(paymaster));
 
         int256 userDelta = int256(userBalanceAfter) - int256(userBalanceBefore);
         int256 lpDelta = int256(lpBalanceAfter) - int256(lpBalanceBefore);
-        int256 rebalancerDelta = int256(rebalancerBalanceAfter) -
-            int256(rebalancerBalanceBefore);
-        int256 bundlerDelta = int256(bundlerBalanceAfter) -
-            int256(bundlerBalanceBefore);
-        int256 entrypointDelta = int256(entrypointBalanceAfter) -
-            int256(entrypointBalanceBefore);
+        int256 rebalancerDelta = int256(rebalancerBalanceAfter) - int256(rebalancerBalanceBefore);
+        int256 bundlerDelta = int256(bundlerBalanceAfter) - int256(bundlerBalanceBefore);
+        int256 entrypointDelta = int256(entrypointBalanceAfter) - int256(entrypointBalanceBefore);
 
         uint256 userTokensAfter = token.balanceOf(EOA);
         uint256 lpTokensAfter = token.balanceOf(lp);
@@ -356,10 +310,9 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         // lp should not have received any tokens
         assertEq(lpTokensAfter, 0);
 
-        int256 userTokensDelta = int256(userTokensAfter) -
-            int256(userTokensBefore);
-        int256 rebalancerTokensDelta = int256(rebalancerTokensAfter) -
-            int256(rebalancerTokensBefore);
+        int256 userTokensDelta = int256(userTokensAfter) - int256(userTokensBefore);
+        int256 rebalancerTokensDelta =
+            int256(rebalancerTokensAfter) - int256(rebalancerTokensBefore);
 
         int256 rebalancerProfit = rebalancerTokensDelta + rebalancerDelta;
 
@@ -375,5 +328,7 @@ contract OpenPaymasterTest is Test, UserOpHelper {
         console.log("bundler eth delta (profit)", bundlerDelta);
 
         console.log("entrypoint eth delta", entrypointDelta);
+
+        assertEq(entrypointDelta, 1, "entrypoint eth delta should be exactly 1, otherwise the postOp cost is wrongly estimated");
     }
 }

@@ -13,13 +13,11 @@
     "clean": "hardhat clean && cd ../contracts && forge clean",
     "node": "hardhat node",
     "lint": "prettier --write test/ scripts/ && eslint test/ scripts/",
-    "deploy-pyth-oracle": "hardhat run scripts/oracle/deployPythOracle.ts",
-    "set-pyth-oracle-price": "hardhat run scripts/oracle/setPythOraclePrice.ts",
-    "query-oracle": "hardhat run scripts/oracle/queryOracle.ts",
-    "deploy-paymaster": "hardhat run scripts/deployPaymaster.ts",
-    "initialize-pool": "hardhat run scripts/pool/initializePool.ts",
+    "deploy-oracle": "hardhat run scripts/oracle/deployOracle.ts",
+    "deploy-paymaster": "hardhat run scripts/paymaster/deployPaymaster.ts",
+    "create-pool": "hardhat run scripts/pool/createPool.ts",
     "query-pool": "hardhat run scripts/pool/queryPool.ts",
-    "delegate": "hardhat run scripts/delegate.ts"
+    "delegate": "hardhat run scripts/account/delegate.ts"
   },
   "dependencies": {
     "paymaster-sdk": "workspace:*"
@@ -30,7 +28,6 @@
   "devDependencies": {
     "dotenv": "^17.2.3",
     "@eslint/js": "^9.38.0",
-    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "@nomicfoundation/hardhat-viem": "^2.0.0",
     "@types/chai": "^4.3.0",
     "@types/mocha": "^10.0.0",
